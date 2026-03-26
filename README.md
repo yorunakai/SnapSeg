@@ -49,14 +49,6 @@ python main.py
 
 Open: `http://127.0.0.1:7861`
 
-LAN mode:
-
-```bash
-python main.py --host 0.0.0.0 --port 7861
-```
-
-Then open `http://<SERVER_IP>:7861`.
-
 ## Basic Workflow
 
 1. Pick source folder/image
@@ -96,11 +88,6 @@ Autosave:
 
 - `outputs/<run>/autosave/<image_stem>_autosave.json`
 
-## Performance Check
-
-```bash
-python profile_sam_latency.py --image examples/sample.jpg --runs 30 --points 2 --device auto
-```
 
 ## Project Layout
 
