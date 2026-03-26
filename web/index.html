@@ -17,6 +17,9 @@
     .btn:hover { filter:brightness(1.08); }
     .btn.primary { background:#1f7a4a; border-color:#2ea162; }
     .btn.warn { background:#7a4a1f; border-color:#a16a2e; }
+    .btnCompact { display:flex; align-items:center; justify-content:center; gap:6px; }
+    .btnCompact svg { width:14px; height:14px; opacity:0.95; }
+    .btnCompact .lbl { font-size:12px; letter-spacing:0.1px; }
     .status { font-size:13px; line-height:1.6; color:var(--muted); white-space:pre-line; }
     .canvasWrap { background:#0d141b; border:1px solid var(--line); border-radius:14px; height:calc(100vh - 24px); overflow:hidden; }
     .canvasStage { height:100%; display:flex; align-items:center; justify-content:center; padding:10px; box-sizing:border-box; }
@@ -127,28 +130,52 @@
         <button class="btn primary" onclick="applyConfig()">Load Source</button>
       </div>
       <div class="section">
-        <button class="btn primary" onclick="act('save')">Save Current Image (S)</button>
-        <button class="btn" onclick="act('confirm')">Confirm Current Instance (Enter)</button>
+        <button class="btn primary btnCompact" onclick="act('save')" title="Save Current Image (S)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><path d="M8 21v-7h8v7"/></svg><span class="lbl">Save (S)</span>
+        </button>
+        <button class="btn btnCompact" onclick="act('confirm')" title="Confirm Current Instance (Enter)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg><span class="lbl">Confirm (Enter)</span>
+        </button>
         <div class="row">
-          <button class="btn" onclick="act('prev')">Previous (Left)</button>
-          <button class="btn" onclick="act('next')">Next (Space/Right)</button>
+          <button class="btn btnCompact" onclick="act('prev')" title="Previous (Left)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg><span class="lbl">Prev</span>
+          </button>
+          <button class="btn btnCompact" onclick="act('next')" title="Next (Space/Right)">
+            <span class="lbl">Next</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
         </div>
         <div class="row">
           <input id="gotoIdx" type="number" min="1" step="1" style="flex:1;padding:10px;border-radius:10px;background:#182430;color:#e6eef7;border:1px solid #33485f;" placeholder="Image index">
           <button class="btn" style="width:120px" onclick="gotoImage()">Go</button>
         </div>
         <div class="row">
-          <button class="btn" onclick="act('undo')">Undo Point (U)</button>
-          <button class="btn warn" onclick="act('reset')">Reset Current (R)</button>
+          <button class="btn btnCompact" onclick="act('undo')" title="Undo Point (U)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14L4 9l5-5"/><path d="M20 20a8 8 0 0 0-8-8H4"/></svg><span class="lbl">Undo</span>
+          </button>
+          <button class="btn warn btnCompact" onclick="act('reset')" title="Reset Current (R)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg><span class="lbl">Reset</span>
+          </button>
         </div>
-        <button class="btn" onclick="act('toggle_flag')">Toggle Flag (F)</button>
-        <button class="btn warn" onclick="act('undo_instance')">Undo Last Instance (Backspace)</button>
-        <button id="boxModeBtn" class="btn" onclick="toggleBoxMode()">Box Mode (B): Off</button>
-        <button id="editModeBtn" class="btn" onclick="toggleEditMode()">Edit Mask (E): Off</button>
-        <button id="brushTypeBtn" class="btn" onclick="toggleBrushType()">Brush: Add</button>
+        <button class="btn btnCompact" onclick="act('toggle_flag')" title="Toggle Flag (F)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3v18"/><path d="M5 4h10l-1.5 3L15 10H5"/></svg><span class="lbl">Flag (F)</span>
+        </button>
+        <button class="btn warn btnCompact" onclick="act('undo_instance')" title="Undo Last Instance (Backspace)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 17l-5-5 5-5"/><path d="M18 17l-5-5 5-5"/></svg><span class="lbl">Undo Inst</span>
+        </button>
+        <button id="boxModeBtn" class="btn btnCompact" onclick="toggleBoxMode()" title="Toggle Box Mode (B)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="14" height="14"/></svg><span class="lbl">Box (B): Off</span>
+        </button>
+        <button id="editModeBtn" class="btn btnCompact" onclick="toggleEditMode()" title="Toggle Edit Mask (E)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4z"/></svg><span class="lbl">Edit (E): Off</span>
+        </button>
+        <button id="brushTypeBtn" class="btn btnCompact" onclick="toggleBrushType()" title="Toggle Brush Add/Erase">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M7 14l5-9 5 9"/></svg><span class="lbl">Brush: Add</span>
+        </button>
         <div style="margin-top:6px;margin-bottom:6px;">Brush Radius</div>
         <input id="brushRadius" type="range" min="1" max="64" step="1" value="12" style="width:100%;">
-        <button class="btn" onclick="act('revert_mask')">Revert to SAM (T)</button>
+        <button class="btn btnCompact" onclick="act('revert_mask')" title="Revert to SAM Prediction (T)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg><span class="lbl">Revert (T)</span>
+        </button>
       </div>
       <div class="section">
         <div style="margin-top:2px;margin-bottom:6px;">Polygon Smoothing (epsilon)</div>
@@ -161,17 +188,27 @@
       <div class="section">
         <div style="margin-top:2px;margin-bottom:6px;">Zoom</div>
         <div class="row">
-          <button class="btn" onclick="zoomIn()">Zoom In (+)</button>
-          <button class="btn" onclick="zoomOut()">Zoom Out (-)</button>
+          <button class="btn btnCompact" onclick="zoomIn()" title="Zoom In (+)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/><path d="M11 8v6"/><path d="M8 11h6"/></svg><span class="lbl">Zoom In</span>
+          </button>
+          <button class="btn btnCompact" onclick="zoomOut()" title="Zoom Out (-)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/><path d="M8 11h6"/></svg><span class="lbl">Zoom Out</span>
+          </button>
         </div>
-        <button class="btn" onclick="zoomReset()">Reset View (0)</button>
+        <button class="btn btnCompact" onclick="zoomReset()" title="Reset View (0)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg><span class="lbl">Reset (0)</span>
+        </button>
       </div>
       <div class="section">
         <div style="margin-top:2px;margin-bottom:6px;">Class</div>
         <select id="classSel" onchange="setClass(this.value)"></select>
         <div class="row">
-          <button class="btn" onclick="act('class_prev')">Prev Class (P)</button>
-          <button class="btn" onclick="act('class_next')">Next Class (N)</button>
+          <button class="btn btnCompact" onclick="act('class_prev')" title="Previous Class (P)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg><span class="lbl">Class P</span>
+          </button>
+          <button class="btn btnCompact" onclick="act('class_next')" title="Next Class (N)">
+            <span class="lbl">Class N</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
         </div>
       </div>
     </div>
@@ -318,14 +355,14 @@ function zoomOut() {
 }
 
 function updateBoxModeButton() {
-  boxModeBtn.textContent = `Box Mode (B): ${boxMode ? 'On' : 'Off'}`;
+  boxModeBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="14" height="14"/></svg><span class="lbl">Box (B): ${boxMode ? 'On' : 'Off'}</span>`;
   boxModeBtn.style.borderColor = boxMode ? '#2ea162' : '#3a4d62';
 }
 
 function updateEditButtons() {
-  editModeBtn.textContent = `Edit Mask (E): ${editMode ? 'On' : 'Off'}`;
+  editModeBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4z"/></svg><span class="lbl">Edit (E): ${editMode ? 'On' : 'Off'}</span>`;
   editModeBtn.style.borderColor = editMode ? '#2ea162' : '#3a4d62';
-  brushTypeBtn.textContent = `Brush: ${brushErase ? 'Erase' : 'Add'}`;
+  brushTypeBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M7 14l5-9 5 9"/></svg><span class="lbl">Brush: ${brushErase ? 'Erase' : 'Add'}</span>`;
   brushTypeBtn.style.borderColor = brushErase ? '#a16a2e' : '#2ea162';
 }
 
