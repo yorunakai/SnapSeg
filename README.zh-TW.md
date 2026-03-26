@@ -11,6 +11,8 @@
 ## 功能
 
 - 正負點提示分割
+- 框選提示（拖曳方框分割大型目標）
+- 混合提示（box + points）
 - 縮放/平移，適合小目標
 - 單張圖多 instance 標註
 - 支援反悔（`Backspace` 撤回最後一筆已確認 instance）
@@ -22,6 +24,7 @@
 - 下一張預載（prefetch queue）
 - 顯存保護（可用 VRAM < 2GB 時暫停預載）
 - 非同步存檔 + dirty-state autosave
+- 重新載入圖片時自動還原 autosave 標註
 - 匯出 COCO + YOLO Segmentation
 - `epsilon` 輪廓簡化控制
 
@@ -62,6 +65,8 @@ python main.py
 - 右鍵：負點
 - 滾輪：縮放
 - `Shift + 左鍵拖曳`：平移
+- `B`：切換 Box Mode
+- Box Mode + 左鍵拖曳：建立框選提示
 - `Enter`：確認目前 instance
 - `S`：儲存目前圖片所有已確認 instance
 - `Backspace`：撤回最後一筆已確認 instance
@@ -75,6 +80,7 @@ python main.py
 
 - `Enter` 只做記憶體確認
 - `S` 才會寫入磁碟
+- 重新切回同一張圖片時，若有 autosave 會自動還原已確認 instance
 
 ## 輸出
 
@@ -95,7 +101,6 @@ python main.py
 - `src/interactive/sam_service.py` - SAM 服務與 embedding 快取
 - `src/interactive/runtime.py` - 預載 + 非同步存檔/暫存
 - `src/interactive/exporter.py` - COCO/YOLO 匯出
-- `profile_sam_latency.py` - 延遲測試
 
 ## 授權
 

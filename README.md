@@ -11,6 +11,8 @@ Web-based interactive segmentation annotation tool built around SAM.
 ## Features
 
 - Positive/negative point prompts
+- Box prompt (drag to segment large objects)
+- Mixed prompts (box + points)
 - Zoom/pan for tiny targets
 - Multi-instance annotation per image
 - Undo last confirmed instance (`Backspace`)
@@ -22,6 +24,7 @@ Web-based interactive segmentation annotation tool built around SAM.
 - Next-image prefetch queue
 - VRAM guard (pause prefetch if free VRAM < 2GB)
 - Async save + dirty-state autosave
+- Autosave restore on image reload
 - Export: COCO + YOLO Segmentation
 - Polygon simplification control (`epsilon`)
 
@@ -62,6 +65,8 @@ Open: `http://127.0.0.1:7861`
 - Right click: negative point
 - Mouse wheel: zoom
 - `Shift + Left drag`: pan
+- `B`: toggle box mode
+- Box mode + left drag: create box prompt
 - `Enter`: confirm current instance
 - `S`: save all confirmed instances for current image
 - `Backspace`: undo last confirmed instance
@@ -75,6 +80,7 @@ Note:
 
 - `Enter` only confirms in memory
 - `S` writes to disk
+- Switching back to an image restores confirmed instances from autosave if present
 
 ## Output
 
@@ -96,7 +102,6 @@ Autosave:
 - `src/interactive/sam_service.py` - SAM service and embedding cache
 - `src/interactive/runtime.py` - prefetch + async save/autosave
 - `src/interactive/exporter.py` - COCO/YOLO export
-- `profile_sam_latency.py` - latency profiling
 
 ## License
 
