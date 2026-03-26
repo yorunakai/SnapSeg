@@ -8,15 +8,41 @@
   <style>
     :root { --bg:#0f1720; --card:#1b2530; --line:#2d3a48; --text:#e6eef7; --muted:#9fb2c8; --ok:#27c26c; --ng:#ff9f40; }
     body { margin:0; background:linear-gradient(120deg,#0f1720,#121b24); color:var(--text); font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif; }
-    .wrap { display:grid; grid-template-columns: 280px 1fr; gap:12px; padding:12px; height:100vh; box-sizing:border-box; }
-    .panel { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; overflow:auto; }
+    .wrap { display:grid; grid-template-columns: 340px 1fr 340px; gap:12px; padding:12px; height:100vh; box-sizing:border-box; }
+    .panel { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; }
+    .controlPanel { overflow:auto; }
+    .section { margin-bottom:10px; padding-bottom:10px; border-bottom:1px dashed #324252; }
+    .section:last-child { border-bottom:none; margin-bottom:0; padding-bottom:0; }
     .btn { width:100%; padding:10px; margin:6px 0; border:1px solid #3a4d62; border-radius:10px; background:#223142; color:#e6eef7; cursor:pointer; font-weight:600; }
     .btn:hover { filter:brightness(1.08); }
     .btn.primary { background:#1f7a4a; border-color:#2ea162; }
     .btn.warn { background:#7a4a1f; border-color:#a16a2e; }
     .status { font-size:13px; line-height:1.6; color:var(--muted); white-space:pre-line; }
-    .canvasWrap { background:#0d141b; border:1px solid var(--line); border-radius:14px; display:flex; align-items:center; justify-content:center; height:calc(100vh - 24px); }
+    .canvasWrap { background:#0d141b; border:1px solid var(--line); border-radius:14px; height:calc(100vh - 24px); overflow:hidden; }
+    .canvasStage { height:100%; display:flex; align-items:center; justify-content:center; padding:10px; box-sizing:border-box; }
     canvas { max-width: 100%; max-height: 100%; width:auto; height:auto; border-radius:10px; cursor:crosshair; }
+    .inspector {
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:12px;
+      overflow:auto;
+      height:calc(100vh - 24px);
+      box-sizing:border-box;
+    }
+    .inspectorTitle { font-weight:700; margin:2px 0 8px 0; }
+    .infoCard {
+      border:1px solid #324658;
+      border-radius:10px;
+      padding:10px;
+      margin-bottom:10px;
+      background:#162331;
+    }
+    .statusMsg { font-size:12px; color:#ffd27a; margin-bottom:8px; white-space:pre-line; }
+    .statusGrid { display:grid; grid-template-columns: 118px 1fr; gap:6px 10px; align-items:start; }
+    .k { color:#9fb2c8; font-size:12px; }
+    .v { color:#e6eef7; font-size:12px; word-break:break-word; }
+    .v.warn { color:#ffd27a; }
     .title { font-weight:800; margin-bottom:8px; }
     .row { display:flex; gap:8px; }
     .row .btn { margin:6px 0; }
@@ -53,6 +79,21 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+    @media (max-width: 1280px) {
+      .wrap { grid-template-columns: 320px 1fr; grid-template-areas: "left middle" "right middle"; height:auto; min-height:100vh; }
+      .controlPanel { grid-area:left; }
+      .canvasWrap { grid-area:middle; }
+      .inspector { grid-area:right; }
+      .canvasWrap { height:65vh; min-height:520px; }
+      .inspector { height:auto; min-height:320px; }
+    }
+    @media (max-width: 900px) {
+      .wrap { grid-template-columns: 1fr; grid-template-areas: "left" "middle" "right"; }
+      .canvasWrap { height:auto; min-height:unset; }
+      .canvasStage { min-height:420px; }
+      .inspector { height:auto; max-height:unset; }
+      canvas { max-width: 100%; max-height: 70vh; }
+    }
   </style>
 </head>
 <body>
@@ -63,71 +104,95 @@
     </div>
   </div>
   <div class="wrap">
-    <div class="panel">
+    <div class="panel controlPanel">
       <div class="title">SnapSeg Interactive Annotator</div>
-      <div style="margin-bottom:6px;">Select a source folder or a single image:</div>
-      <input id="sourcePath" type="text" readonly style="width:100%;padding:10px;border-radius:10px;background:#182430;color:#e6eef7;border:1px solid #33485f;" placeholder="Pick a folder or image path">
-      <div class="row">
-        <button class="btn" onclick="pickFolder()">Pick Folder</button>
-        <button class="btn" onclick="pickImage()">Pick Image</button>
+      <div class="section">
+        <div style="margin-bottom:6px;">Select a source folder or a single image:</div>
+        <input id="sourcePath" type="text" readonly style="width:100%;padding:10px;border-radius:10px;background:#182430;color:#e6eef7;border:1px solid #33485f;" placeholder="Pick a folder or image path">
+        <div class="row">
+          <button class="btn" onclick="pickFolder()">Pick Folder</button>
+          <button class="btn" onclick="pickImage()">Pick Image</button>
+        </div>
+        <div style="margin-top:8px;margin-bottom:6px;">Annotation Classes (comma-separated)</div>
+        <input id="classInput" type="text" style="width:100%;padding:10px;border-radius:10px;background:#182430;color:#e6eef7;border:1px solid #33485f;" placeholder="scratch,particle,stain">
+        <button class="btn primary" onclick="applyConfig()">Load Source</button>
       </div>
-      <div style="margin-top:8px;margin-bottom:6px;">Annotation Classes (comma-separated)</div>
-      <input id="classInput" type="text" style="width:100%;padding:10px;border-radius:10px;background:#182430;color:#e6eef7;border:1px solid #33485f;" placeholder="scratch,particle,stain">
-      <button class="btn primary" onclick="applyConfig()">Load Source</button>
-      <button class="btn primary" onclick="act('save')">S Save Current Image</button>
-      <button class="btn" onclick="act('confirm')">Enter Confirm Current Instance</button>
-      <div class="row">
-        <button class="btn" onclick="act('prev')">Previous</button>
-        <button class="btn" onclick="act('next')">Next</button>
+      <div class="section">
+        <button class="btn primary" onclick="act('save')">S Save Current Image</button>
+        <button class="btn" onclick="act('confirm')">Enter Confirm Current Instance</button>
+        <div class="row">
+          <button class="btn" onclick="act('prev')">Previous</button>
+          <button class="btn" onclick="act('next')">Next</button>
+        </div>
+        <div class="row">
+          <input id="gotoIdx" type="number" min="1" step="1" style="flex:1;padding:10px;border-radius:10px;background:#182430;color:#e6eef7;border:1px solid #33485f;" placeholder="Image index">
+          <button class="btn" style="width:120px" onclick="gotoImage()">Go</button>
+        </div>
+        <div class="row">
+          <button class="btn" onclick="act('undo')">U Undo Point</button>
+          <button class="btn warn" onclick="act('reset')">R Reset Current</button>
+        </div>
+        <button class="btn warn" onclick="act('undo_instance')">Backspace Undo Last Instance</button>
+        <button id="boxModeBtn" class="btn" onclick="toggleBoxMode()">B Box Mode: Off</button>
       </div>
-      <div class="row">
-        <input id="gotoIdx" type="number" min="1" step="1" style="flex:1;padding:10px;border-radius:10px;background:#182430;color:#e6eef7;border:1px solid #33485f;" placeholder="Image index">
-        <button class="btn" style="width:120px" onclick="gotoImage()">Go</button>
+      <div class="section">
+        <div style="margin-top:2px;margin-bottom:6px;">Polygon Smoothing (epsilon)</div>
+        <input id="eps" type="range" min="0" max="0.02" step="0.0005" value="0.005" style="width:100%;">
+        <div class="row">
+          <button class="btn" onclick="applyEpsilon()">Apply Epsilon</button>
+        </div>
+        <div class="status" id="epsText"></div>
       </div>
-      <div class="row">
-        <button class="btn" onclick="act('undo')">U Undo Point</button>
-        <button class="btn warn" onclick="act('reset')">R Reset Current</button>
+      <div class="section">
+        <div style="margin-top:2px;margin-bottom:6px;">Zoom</div>
+        <div class="row">
+          <button class="btn" onclick="zoomIn()">Zoom +</button>
+          <button class="btn" onclick="zoomOut()">Zoom -</button>
+        </div>
+        <button class="btn" onclick="zoomReset()">Reset View</button>
       </div>
-      <button class="btn warn" onclick="act('undo_instance')">Backspace Undo Last Instance</button>
-      <button id="boxModeBtn" class="btn" onclick="toggleBoxMode()">B Box Mode: Off</button>
-      <div style="margin-top:8px;margin-bottom:6px;">Polygon Smoothing (epsilon)</div>
-      <input id="eps" type="range" min="0" max="0.02" step="0.0005" value="0.005" style="width:100%;">
-      <div class="row">
-        <button class="btn" onclick="applyEpsilon()">Apply Epsilon</button>
-      </div>
-      <div class="status" id="epsText"></div>
-      <div style="margin-top:8px;margin-bottom:6px;">Zoom</div>
-      <div class="row">
-        <button class="btn" onclick="zoomIn()">Zoom +</button>
-        <button class="btn" onclick="zoomOut()">Zoom -</button>
-      </div>
-      <button class="btn" onclick="zoomReset()">Reset View</button>
-      <div style="margin-top:8px;margin-bottom:6px;">Class</div>
-      <select id="classSel" onchange="setClass(this.value)"></select>
-      <div class="row">
-        <button class="btn" onclick="act('class_prev')">Prev Class</button>
-        <button class="btn" onclick="act('class_next')">Next Class</button>
-      </div>
-      <div style="margin-top:8px;margin-bottom:6px;">Confirmed Instances</div>
-      <div id="instanceList" class="status"></div>
-      <div class="status" id="status"></div>
-      <div class="status" style="margin-top:12px;">
-        Left click: positive point (+)<br/>
-        Right click: negative point (-)<br/>
-        Box mode: left drag to draw box prompt<br/>
-        Mouse wheel: zoom in/out<br/>
-        Shift + left drag: pan view<br/>
-        Hotkeys: S / Enter / Space / Left / Right / U / R / Backspace / B / N / P / 1-9 / 0 (reset zoom)
+      <div class="section">
+        <div style="margin-top:2px;margin-bottom:6px;">Class</div>
+        <select id="classSel" onchange="setClass(this.value)"></select>
+        <div class="row">
+          <button class="btn" onclick="act('class_prev')">Prev Class</button>
+          <button class="btn" onclick="act('class_next')">Next Class</button>
+        </div>
       </div>
     </div>
     <div class="canvasWrap panel">
-      <canvas id="cv"></canvas>
+      <div class="canvasStage">
+        <canvas id="cv"></canvas>
+      </div>
     </div>
+    <aside class="inspector">
+      <div class="inspectorTitle">Session Status</div>
+      <div class="infoCard">
+        <div id="statusMessage" class="statusMsg"></div>
+        <div id="status" class="statusGrid"></div>
+      </div>
+      <div class="inspectorTitle">Confirmed Instances</div>
+      <div class="infoCard">
+        <div id="instanceList" class="status"></div>
+      </div>
+      <div class="inspectorTitle">Hotkeys</div>
+      <div class="infoCard">
+        <div class="status">
+          Left click: positive point (+)<br/>
+          Right click: negative point (-)<br/>
+          Box mode: left drag to draw box prompt<br/>
+          Mouse wheel: zoom in/out<br/>
+          Shift + left drag: pan view<br/>
+          Hotkeys: S / Enter / Space / Left / Right / U / R / Backspace / B / N / P / 1-9 / 0 (reset zoom)
+        </div>
+      </div>
+    </aside>
   </div>
 <script>
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
 const statusEl = document.getElementById('status');
+const statusMessageEl = document.getElementById('statusMessage');
 const classSel = document.getElementById('classSel');
 const epsEl = document.getElementById('eps');
 const epsText = document.getElementById('epsText');
@@ -154,6 +219,26 @@ let boxStartX = 0.0;
 let boxStartY = 0.0;
 let boxEndX = 0.0;
 let boxEndY = 0.0;
+
+function esc(s) {
+  return String(s ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function setStatusMessage(msg) {
+  statusMessageEl.textContent = msg || '';
+}
+
+function setStatusFieldRows(rows) {
+  statusEl.innerHTML = rows.map((r) => {
+    const warnClass = r.warn ? ' warn' : '';
+    return `<div class="k">${esc(r.k)}</div><div class="v${warnClass}">${esc(r.v)}</div>`;
+  }).join('');
+}
 
 function showLoading(msg) {
   loadingText.textContent = msg || 'Loading...';
@@ -282,17 +367,26 @@ async function getState() {
     if (i === state.class_idx) op.selected = true;
     classSel.appendChild(op);
   });
-  statusEl.textContent =
-    `Image: ${state.image_index}/${state.image_total} (${state.image_name})\\n` +
-    `Class: ${state.class_list[state.class_idx]}  |  Instances: ${state.instances}  |  Box Prompt: ${state.has_box_prompt}\\n` +
-    `Backend(requested/effective): ${state.backend_requested} / ${state.backend}  |  Model: ${state.model_id}\\n` +
-    (state.backend_warning ? `Backend warning: ${state.backend_warning}\\n` : '') +
-    `Points: ${state.points}  |  Score: ${state.score}  |  Decoder: ${state.latency_ms} ms\\n` +
-    `Save Queue: ${state.save_queue}  |  Autosave Queue: ${state.autosave_queue}\\n` +
-    `Prefetch Free VRAM: ${state.prefetch_free_gb} GB\\n` +
-    `Prefetch Paused(<2GB): ${state.prefetch_paused_low_vram}\\n` +
-    `Autosave: ${state.autosave}\\n` +
-    `Zoom: ${viewScale.toFixed(2)}x  |  Mode: ${boxMode ? 'Box' : 'Point'}`;
+  const activeClass = (state.class_list && state.class_list.length > 0) ? state.class_list[state.class_idx] : '-';
+  const rows = [
+    { k: 'Image', v: `${state.image_index}/${state.image_total} (${state.image_name || '-'})` },
+    { k: 'Class', v: `${activeClass}` },
+    { k: 'Instances', v: `${state.instances}` },
+    { k: 'Prompt Mode', v: `${boxMode ? 'Box' : 'Point'} (Box Prompt: ${state.has_box_prompt})` },
+    { k: 'Points', v: `${state.points}` },
+    { k: 'Score', v: `${state.score}` },
+    { k: 'Latency', v: `${state.latency_ms} ms` },
+    { k: 'Backend', v: `${state.backend_requested} -> ${state.backend}` },
+    { k: 'Model', v: `${state.model_id}` },
+    { k: 'Save Queue', v: `${state.save_queue}` },
+    { k: 'Autosave Queue', v: `${state.autosave_queue}` },
+    { k: 'VRAM Free', v: `${state.prefetch_free_gb} GB` },
+    { k: 'Prefetch Guard', v: `${state.prefetch_paused_low_vram}` },
+    { k: 'Autosave File', v: `${state.autosave}` },
+    { k: 'Zoom', v: `${viewScale.toFixed(2)}x` },
+  ];
+  setStatusFieldRows(rows);
+  setStatusMessage(state.backend_warning || '');
   epsEl.value = Number(state.polygon_epsilon_ratio || 0.005);
   epsText.textContent = `Current epsilon: ${Number(state.polygon_epsilon_ratio || 0.005).toFixed(4)}`;
   gotoEl.max = String(state.image_total);
@@ -392,7 +486,7 @@ async function applyConfig() {
   const source_path = sourceEl.value.trim();
   const classes = classInputEl.value.trim();
   if (!source_path) {
-    statusEl.textContent = "Please pick a folder/image path first.";
+    setStatusMessage("Please pick a folder/image path first.");
     return;
   }
   showLoading('Loading source and preparing SAM embeddings...');
@@ -403,7 +497,7 @@ async function applyConfig() {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({detail:"unknown error"}));
-    statusEl.textContent = `Error: ${err.detail || 'unknown error'}`;
+    setStatusMessage(`Error: ${err.detail || 'unknown error'}`);
     hideLoading();
     return;
   }
