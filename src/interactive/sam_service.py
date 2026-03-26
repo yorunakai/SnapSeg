@@ -7,7 +7,6 @@ from typing import Any, Literal
 
 import numpy as np
 import torch
-import torch.nn.functional as F
 from PIL import Image
 
 
@@ -199,17 +198,27 @@ class SamEmbeddingCacheService:
                 model_kwargs["input_boxes"] = input_boxes
             outputs = self._model(**model_kwargs)
 
-            low_res_masks = outputs.pred_masks[0, 0]  # [K, H, W]
             iou_scores = outputs.iou_scores[0, 0]  # [K]
             best_idx = int(torch.argmax(iou_scores).item())
-            best_mask = low_res_masks[best_idx].unsqueeze(0).unsqueeze(0)  # [1,1,H,W]
-            up = F.interpolate(
-                best_mask,
-                size=(self._orig_h, self._orig_w),
-                mode="bilinear",
-                align_corners=False,
+
+            # Use SAM's official mask post-processing to map masks back to original image geometry.
+            original_sizes = torch.tensor(
+                [[self._orig_h, self._orig_w]],
+                dtype=torch.int64,
+                device=outputs.pred_masks.device,
             )
-            binary = (up[0, 0] > 0.0).to(torch.uint8)
+            reshaped_input_sizes = torch.tensor(
+                [[self._reshape_h, self._reshape_w]],
+                dtype=torch.int64,
+                device=outputs.pred_masks.device,
+            )
+            post_masks = self._processor.image_processor.post_process_masks(
+                outputs.pred_masks,
+                original_sizes=original_sizes,
+                reshaped_input_sizes=reshaped_input_sizes,
+            )
+            best_post = post_masks[0][0, best_idx]  # [orig_h, orig_w]
+            binary = (best_post > 0.0).to(torch.uint8)
             score = float(iou_scores[best_idx].item())
         latency_ms = (perf_counter() - t0) * 1000.0
 

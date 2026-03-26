@@ -26,6 +26,7 @@ Web-based interactive segmentation annotation tool built around SAM.
 - VRAM guard (pause prefetch if free VRAM < 2GB)
 - Async save + dirty-state autosave
 - Autosave restore on image reload
+- Lossless PNG preview frame rendering in Web UI (sharper mask edges)
 - Export: COCO + YOLO Segmentation
 - Polygon simplification control (`epsilon`)
 

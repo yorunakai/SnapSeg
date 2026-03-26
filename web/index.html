@@ -418,7 +418,7 @@ async function drawFrame() {
     hasFrame = true;
     renderCanvas();
   };
-  frameImg.src = `/api/frame?ts=${Date.now()}`;
+  frameImg.src = `/api/frame?fmt=png&ts=${Date.now()}`;
 }
 
 async function act(action) {

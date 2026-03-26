@@ -471,11 +471,14 @@ class AnnotatorSession:
         elif action == "set_epsilon" and epsilon is not None:
             self.polygon_epsilon_ratio = max(0.0, min(0.05, float(epsilon)))
 
-    def render_frame(self) -> bytes:
+    def render_frame(self, image_format: Literal["jpg", "png"] = "png") -> bytes:
         if self.base_bgr is None or not self.has_images:
             ph = np.zeros((720, 1280, 3), dtype=np.uint8)
             cv2.putText(ph, "Set source path and classes, then click Load", (70, 360), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (220, 220, 220), 2)
-            ok, enc = cv2.imencode(".jpg", ph, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+            if image_format == "png":
+                ok, enc = cv2.imencode(".png", ph, [int(cv2.IMWRITE_PNG_COMPRESSION), 1])
+            else:
+                ok, enc = cv2.imencode(".jpg", ph, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
             if not ok:
                 raise RuntimeError("Frame encode failed")
             return enc.tobytes()
@@ -494,7 +497,10 @@ class AnnotatorSession:
         if self.current_box is not None:
             x1, y1, x2, y2 = [int(v) for v in self.current_box]
             cv2.rectangle(view, (x1, y1), (x2, y2), (80, 220, 255), 2, lineType=cv2.LINE_AA)
-        ok, enc = cv2.imencode(".jpg", view, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+        if image_format == "png":
+            ok, enc = cv2.imencode(".png", view, [int(cv2.IMWRITE_PNG_COMPRESSION), 1])
+        else:
+            ok, enc = cv2.imencode(".jpg", view, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
         if not ok:
             raise RuntimeError("Frame encode failed")
         return enc.tobytes()
@@ -579,10 +585,12 @@ def build_app(session: AnnotatorSession) -> FastAPI:
             return JSONResponse(session.state())
 
     @app.get("/api/frame")
-    def api_frame() -> Response:
+    def api_frame(fmt: str = "png") -> Response:
+        fmt_norm = "png" if str(fmt).lower() not in {"jpg", "jpeg"} else "jpg"
         with session.lock:
-            jpg = session.render_frame()
-        return Response(content=jpg, media_type="image/jpeg")
+            img = session.render_frame(image_format=fmt_norm)
+        media_type = "image/png" if fmt_norm == "png" else "image/jpeg"
+        return Response(content=img, media_type=media_type)
 
     @app.post("/api/click")
     def api_click(data: ClickIn) -> JSONResponse:

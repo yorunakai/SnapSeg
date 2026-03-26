@@ -26,6 +26,7 @@
 - 顯存保護（可用 VRAM < 2GB 時暫停預載）
 - 非同步存檔 + dirty-state autosave
 - 重新載入圖片時自動還原 autosave 標註
+- Web 預覽改用無損 PNG 畫面傳輸（遮罩邊緣更清楚）
 - 匯出 COCO + YOLO Segmentation
 - `epsilon` 輪廓簡化控制
 
