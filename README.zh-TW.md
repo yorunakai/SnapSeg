@@ -8,6 +8,10 @@
 
 ![SnapSeg Demo](docs/demo_v2.gif)
 
+### Overview
+
+![SnapSeg Overview](docs/overview.gif)
+
 ## 功能
 
 - 正負點提示分割
