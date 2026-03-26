@@ -8,6 +8,10 @@ Web-based interactive segmentation annotation tool built around SAM.
 
 ![SnapSeg Demo](docs/demo.gif)
 
+### Overview
+
+![SnapSeg Overview](docs/overview.gif)
+
 ## Features
 
 - Positive/negative point prompts
