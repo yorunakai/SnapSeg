@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import threading
+import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 from time import time
@@ -19,6 +21,7 @@ from src.interactive import AsyncAutosaveManager, AsyncSaveManager, MaskAnnotati
 
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+logger = logging.getLogger("uvicorn.error")
 
 
 def parse_args() -> argparse.Namespace:
@@ -43,6 +46,11 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="",
         help="Optional Hugging Face model id override for selected backend",
+    )
+    p.add_argument(
+        "--restore-flags",
+        action="store_true",
+        help="Restore flagged status from autosave files (disabled by default).",
     )
     return p.parse_args()
 
@@ -125,6 +133,7 @@ class AnnotatorSession:
         source_path: str = "",
         backend: Literal["sam", "mobile_sam"] = "sam",
         model_id: str | None = None,
+        restore_flags: bool = False,
     ) -> None:
         self.images = images
         self.class_list = class_list if class_list else ["object"]
@@ -151,10 +160,12 @@ class AnnotatorSession:
         self.last_score = 0.0
         self.base_bgr: np.ndarray | None = None
         self.polygon_epsilon_ratio = 0.005
+        self.restore_flags = bool(restore_flags)
 
         self.states: dict[str, ImageSessionState] = {
             str(p): ImageSessionState(instances=[], is_dirty=False) for p in images
         }
+        self._preload_flags_from_autosave()
         if self.images:
             self._load_image(0)
 
@@ -180,6 +191,63 @@ class AnnotatorSession:
     def _instances(self) -> list[tuple[str, np.ndarray, float]]:
         return self._image_state().instances
 
+    def _image_key(self, image: Path) -> str:
+        resolved = str(image.resolve())
+        digest = hashlib.sha1(resolved.encode("utf-8")).hexdigest()[:12]
+        safe_stem = image.stem.replace(" ", "_")
+        return f"{safe_stem}_{digest}"
+
+    def _autosave_json_candidates(self, image: Path) -> list[Path]:
+        # Prefer collision-safe filename; keep legacy stem-based filename for compatibility.
+        return [
+            self.autosave_dir / f"{self._image_key(image)}_autosave.json",
+            self.autosave_dir / f"{image.stem}_autosave.json",
+        ]
+
+    def _autosave_mask_path(self, image: Path, inst_idx: int, label_name: str) -> Path:
+        safe_label = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in label_name)
+        return self.autosave_dir / f"{self._image_key(image)}_inst_{inst_idx}_{safe_label}.png"
+
+    @staticmethod
+    def _parse_flagged_value(flagged_raw: object) -> bool:
+        if isinstance(flagged_raw, str):
+            return flagged_raw.strip().lower() in {"1", "true", "yes", "y", "on"}
+        return bool(flagged_raw)
+
+    @staticmethod
+    def _payload_image_matches(payload: dict, image: Path) -> bool:
+        raw = payload.get("image")
+        if not raw:
+            return True
+        try:
+            payload_path = Path(str(raw)).resolve()
+            image_path = image.resolve()
+            return str(payload_path) == str(image_path)
+        except Exception:
+            return False
+
+    def _preload_flags_from_autosave(self) -> None:
+        if not self.images:
+            return
+        for img in self.images:
+            payload = None
+            for autosave_json in self._autosave_json_candidates(img):
+                if not autosave_json.exists():
+                    continue
+                try:
+                    payload = json.loads(autosave_json.read_text(encoding="utf-8"))
+                    if not self._payload_image_matches(payload, img):
+                        payload = None
+                        continue
+                    break
+                except Exception:
+                    continue
+            if payload is None:
+                continue
+            if self.restore_flags:
+                st = self.states[str(img)]
+                st.flagged = self._parse_flagged_value(payload.get("flagged", False))
+
     def _restore_autosave_for_current_image(self) -> None:
         if not self.has_images:
             return
@@ -187,19 +255,26 @@ class AnnotatorSession:
         if st.instances:
             return
 
-        autosave_json = self.autosave_dir / f"{self.current_image.stem}_autosave.json"
-        if not autosave_json.exists():
+        autosave_json = None
+        for candidate in self._autosave_json_candidates(self.current_image):
+            if candidate.exists():
+                autosave_json = candidate
+                break
+        if autosave_json is None:
             return
 
         try:
             payload = json.loads(autosave_json.read_text(encoding="utf-8"))
         except Exception:
             return
+        if not self._payload_image_matches(payload, self.current_image):
+            return
 
         items = payload.get("instances", [])
         if not isinstance(items, list):
             return
-        st.flagged = bool(payload.get("flagged", False))
+        if self.restore_flags:
+            st.flagged = self._parse_flagged_value(payload.get("flagged", False))
 
         restored: list[tuple[str, np.ndarray, float]] = []
         h, w = self.service.image_rgb.shape[:2]
@@ -276,6 +351,7 @@ class AnnotatorSession:
         self.class_idx = 0
         self.current_idx = 0
         self.states = {str(img): ImageSessionState(instances=[], is_dirty=False) for img in images}
+        self._preload_flags_from_autosave()
         self.points.clear()
         self.point_labels.clear()
         self.current_mask = None
@@ -287,11 +363,12 @@ class AnnotatorSession:
         if not self.has_images:
             return
         st = self._image_state()
-        autosave_json = self.autosave_dir / f"{self.current_image.stem}_autosave.json"
+        autosave_json = self._autosave_json_candidates(self.current_image)[0]
         if not st.is_dirty:
             return
         if not st.instances and not st.flagged:
-            self.autosave_manager.submit_delete(autosave_json)
+            for p in self._autosave_json_candidates(self.current_image):
+                self.autosave_manager.submit_delete(p)
             st.is_dirty = False
             return
 
@@ -303,7 +380,7 @@ class AnnotatorSession:
             "instances": [],
         }
         for i, (label_name, m, score) in enumerate(self._instances()):
-            mask_path = self.autosave_dir / f"{self.current_image.stem}_inst_{i}_{label_name}.png"
+            mask_path = self._autosave_mask_path(self.current_image, i, label_name)
             cv2.imwrite(str(mask_path), (m.astype(np.uint8) * 255))
             ys, xs = np.where(m > 0)
             if len(xs) == 0 or len(ys) == 0:
@@ -548,7 +625,8 @@ class AnnotatorSession:
             # If there is no confirmed label, reset means clean state.
             if not self._instances():
                 self._image_state().is_dirty = False
-                self.autosave_manager.submit_delete(self.autosave_dir / f"{self.current_image.stem}_autosave.json")
+                for p in self._autosave_json_candidates(self.current_image):
+                    self.autosave_manager.submit_delete(p)
         elif action == "confirm":
             self.confirm()
         elif action == "save":
@@ -678,7 +756,7 @@ class AnnotatorSession:
             "points": len(self.points),
             "score": round(float(self.last_score), 4),
             "latency_ms": round(float(self.last_latency_ms), 2),
-            "autosave": f"{self.current_image.stem}_autosave.json",
+            "autosave": self._autosave_json_candidates(self.current_image)[0].name,
             "polygon_epsilon_ratio": self.polygon_epsilon_ratio,
             "save_queue": self.save_manager.pending(),
             "autosave_queue": self.autosave_manager.pending(),
@@ -774,7 +852,19 @@ def build_app(session: AnnotatorSession) -> FastAPI:
     def api_action(data: ActionIn) -> JSONResponse:
         with session.lock:
             try:
+                before_idx = session.current_idx + 1 if session.has_images else 0
+                before_flagged = bool(session._image_state().flagged) if session.has_images else False
                 session.do_action(data.action, data.class_idx, data.epsilon, data.index)
+                after_idx = session.current_idx + 1 if session.has_images else 0
+                after_flagged = bool(session._image_state().flagged) if session.has_images else False
+                logger.info(
+                    "api_action action=%s before=(idx:%s flagged:%s) after=(idx:%s flagged:%s)",
+                    data.action,
+                    before_idx,
+                    before_flagged,
+                    after_idx,
+                    after_flagged,
+                )
             except Exception as exc:
                 raise HTTPException(status_code=400, detail=str(exc))
             out = session.state()
@@ -827,6 +917,7 @@ def main() -> None:
         source_path=source_path,
         backend=args.backend,
         model_id=model_id,
+        restore_flags=args.restore_flags,
     )
     app = build_app(session)
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")

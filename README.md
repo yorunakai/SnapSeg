@@ -64,6 +64,12 @@ Run with MobileSAM backend:
 python main.py --backend mobile_sam
 ```
 
+Restore flagged status from autosave on startup (optional):
+
+```bash
+python main.py --restore-flags
+```
+
 Override model id:
 
 ```bash
@@ -88,7 +94,7 @@ If the selected `mobile_sam` checkpoint is not Transformers-SAM compatible, Snap
 - `B`: toggle box mode
 - Box mode + left drag: create box prompt
 - `E`: toggle edit mask mode
-- `F`: toggle flag
+- `Flag` button: toggle flag for current image
 - `T`: revert current mask to SAM prediction
 - `[` / `]`: brush radius - / +
 - `Enter`: confirm current instance
@@ -109,6 +115,7 @@ Note:
 - `Enter` only confirms in memory
 - `S` writes to disk
 - Switching back to an image restores confirmed instances from autosave if present
+- Flagged status is not restored by default; use `--restore-flags` to enable it
 
 ## Output
 
@@ -120,7 +127,7 @@ Per image:
 
 Autosave:
 
-- `outputs/<run>/autosave/<image_stem>_autosave.json`
+- `outputs/<run>/autosave/<image_stem>_<image_path_hash>_autosave.json`
 
 
 ## Project Layout

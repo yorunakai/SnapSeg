@@ -55,6 +55,21 @@
     .k { color:#9fb2c8; font-size:12px; }
     .v { color:#e6eef7; font-size:12px; word-break:break-word; }
     .v.warn { color:#ffd27a; }
+    .shortcutGrid { display:grid; grid-template-columns: 126px minmax(0, 1fr); gap:6px 10px; align-items:center; }
+    .shortcutGrid > div { min-width:0; }
+    .shortcutGrid > div:nth-child(odd) { text-align:right; }
+    .skKey {
+      display:inline-block;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size:11px;
+      color:#e6eef7;
+      background:#1d2d3e;
+      border:1px solid #3a4d62;
+      border-radius:6px;
+      padding:2px 6px;
+      white-space:nowrap;
+    }
+    .skDesc { color:#b9cbe0; font-size:12px; line-height:1.35; }
     .title { font-weight:800; margin-bottom:8px; }
     .row { display:flex; gap:8px; }
     .row .btn { margin:6px 0; }
@@ -239,6 +254,18 @@
         <button class="btn primary" onclick="applyConfig()">Load Source</button>
       </div>
       <div class="section">
+        <div style="margin-top:2px;margin-bottom:6px;">Class</div>
+        <select id="classSel" onchange="setClass(this.value)"></select>
+        <div class="row">
+          <button class="btn btnCompact" onclick="act('class_prev')" title="Previous Class (P)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg><span class="lbl">Class P</span>
+          </button>
+          <button class="btn btnCompact" onclick="act('class_next')" title="Next Class (N)">
+            <span class="lbl">Class N</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="section">
         <button class="btn primary btnCompact" onclick="act('save')" title="Save Current Image (S)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><path d="M8 21v-7h8v7"/></svg><span class="lbl">Save (S)</span>
         </button>
@@ -268,8 +295,8 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg><span class="lbl">Reset</span>
           </button>
         </div>
-        <button class="btn btnCompact" onclick="act('toggle_flag')" title="Toggle Flag (F)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3v18"/><path d="M5 4h10l-1.5 3L15 10H5"/></svg><span class="lbl">Flag (F)</span>
+        <button class="btn btnCompact" onclick="act('toggle_flag')" title="Toggle Flag">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3v18"/><path d="M5 4h10l-1.5 3L15 10H5"/></svg><span class="lbl">Flag</span>
         </button>
         <button class="btn warn btnCompact" onclick="act('undo_instance')" title="Undo Last Instance (Backspace)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 17l-5-5 5-5"/><path d="M18 17l-5-5 5-5"/></svg><span class="lbl">Undo Inst</span>
@@ -311,18 +338,6 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg><span class="lbl">Reset (0)</span>
         </button>
       </div>
-      <div class="section">
-        <div style="margin-top:2px;margin-bottom:6px;">Class</div>
-        <select id="classSel" onchange="setClass(this.value)"></select>
-        <div class="row">
-          <button class="btn btnCompact" onclick="act('class_prev')" title="Previous Class (P)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg><span class="lbl">Class P</span>
-          </button>
-          <button class="btn btnCompact" onclick="act('class_next')" title="Next Class (N)">
-            <span class="lbl">Class N</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-          </button>
-        </div>
-      </div>
     </div>
     <div class="canvasWrap panel">
       <div class="canvasStage">
@@ -330,15 +345,6 @@
       </div>
     </div>
     <aside class="inspector">
-      <div class="inspectorTitle">Session Status</div>
-      <div class="infoCard">
-        <div id="statusMessage" class="statusMsg"></div>
-        <div id="status" class="statusGrid"></div>
-      </div>
-      <div class="inspectorTitle">Confirmed Instances</div>
-      <div class="infoCard">
-        <div id="instanceList" class="status"></div>
-      </div>
       <div class="inspectorTitle">Progress</div>
       <div class="infoCard">
         <div class="progressGrid">
@@ -351,12 +357,30 @@
         <div class="visitBar"><div id="pVisitFill" class="visitFill"></div></div>
         <div id="pFlagList" class="status" style="margin-top:10px;"></div>
       </div>
+      <div class="inspectorTitle">Confirmed Instances</div>
+      <div class="infoCard">
+        <div id="instanceList" class="status"></div>
+      </div>
+      <div class="inspectorTitle">Session Status</div>
+      <div class="infoCard">
+        <div id="statusMessage" class="statusMsg"></div>
+        <div id="status" class="statusGrid"></div>
+      </div>
       <div class="inspectorTitle">Shortcuts</div>
       <div class="infoCard">
-        <div class="status">
-          Core: Enter(confirm), S(save), Space(next), B(box mode), F(flag), Backspace(undo instance)<br/>
-          Edit: E(toggle), Left/Add, Right/Erase, T(revert), [ / ](radius)<br/>
-          View: Wheel(zoom), Shift+Drag(pan)
+        <div class="shortcutGrid">
+          <div><span class="skKey">Enter</span></div><div class="skDesc">Confirm current instance</div>
+          <div><span class="skKey">S</span></div><div class="skDesc">Save current image</div>
+          <div><span class="skKey">Space / Right</span></div><div class="skDesc">Next image</div>
+          <div><span class="skKey">Left</span></div><div class="skDesc">Previous image</div>
+          <div><span class="skKey">B</span></div><div class="skDesc">Toggle box mode</div>
+          <div><span class="skKey">E</span></div><div class="skDesc">Toggle edit mask mode</div>
+          <div><span class="skKey">Flag button</span></div><div class="skDesc">Toggle flag</div>
+          <div><span class="skKey">Backspace</span></div><div class="skDesc">Undo last instance</div>
+          <div><span class="skKey">U / R</span></div><div class="skDesc">Undo point / Reset current</div>
+          <div><span class="skKey">T</span></div><div class="skDesc">Revert mask to SAM output</div>
+          <div><span class="skKey">[ / ]</span></div><div class="skDesc">Brush radius - / +</div>
+          <div><span class="skKey">Wheel / Shift+Drag</span></div><div class="skDesc">Zoom / Pan view</div>
         </div>
       </div>
     </aside>
@@ -541,6 +565,13 @@ function updateEditButtons() {
   editModeBtn.style.borderColor = editMode ? '#2ea162' : '#3a4d62';
   brushTypeBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M7 14l5-9 5 9"/></svg><span class="lbl">Brush: ${brushErase ? 'Erase' : 'Add'}</span>`;
   brushTypeBtn.style.borderColor = brushErase ? '#a16a2e' : '#2ea162';
+}
+
+function clearButtonFocus() {
+  const ae = document.activeElement;
+  if (ae && ae.tagName && ae.tagName.toUpperCase() === 'BUTTON') {
+    ae.blur();
+  }
 }
 
 function toggleBoxMode() {
@@ -758,6 +789,7 @@ async function drawFrame() {
 
 async function act(action) {
   if (!state || !state.ready) return;
+  clearButtonFocus();
   if (action === 'next' || action === 'prev' || action === 'goto') {
     showLoading('Loading image...');
   }
@@ -768,12 +800,14 @@ async function act(action) {
 
 async function setClass(idx) {
   if (!state || !state.ready) return;
+  clearButtonFocus();
   await fetch('/api/action', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'set_class', class_idx: Number(idx)})});
   await drawFrame();
 }
 
 async function deleteInstance(idx) {
   if (!state || !state.ready) return;
+  clearButtonFocus();
   await fetch('/api/action', {
     method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -784,6 +818,7 @@ async function deleteInstance(idx) {
 
 async function submitBox(x1, y1, x2, y2) {
   if (!state || !state.ready) return;
+  clearButtonFocus();
   await fetch('/api/box', {
     method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -828,6 +863,7 @@ function enqueueBrush(x, y, erase) {
 
 async function applyEpsilon() {
   if (!state || !state.ready) return;
+  clearButtonFocus();
   const v = Number(epsEl.value);
   await fetch('/api/action', {
     method:'POST',
@@ -839,6 +875,7 @@ async function applyEpsilon() {
 
 async function gotoImage() {
   if (!state || !state.ready) return;
+  clearButtonFocus();
   const idx = Number(gotoEl.value);
   if (!Number.isFinite(idx)) return;
   showLoading('Jumping to image...');
@@ -853,6 +890,7 @@ async function gotoImage() {
 
 async function jumpToImage(idx) {
   if (!state || !state.ready) return;
+  clearButtonFocus();
   const n = Number(idx);
   if (!Number.isFinite(n)) return;
   showLoading('Jumping to image...');
@@ -1015,20 +1053,23 @@ window.addEventListener('keydown', async (e) => {
   const tag = (document.activeElement && document.activeElement.tagName) ? document.activeElement.tagName.toUpperCase() : "";
   const isTypingContext = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   if (isTypingContext) return;
-  if (e.key === 's' || e.key === 'S') return act('save');
-  if (e.key === 'Enter') return act('confirm');
-  if (e.key === 'u' || e.key === 'U') return act('undo');
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (tag === 'BUTTON' && (e.key === ' ' || e.key === 'Enter')) {
+    e.preventDefault();
+  }
+  if (e.key === 's' || e.key === 'S') { e.preventDefault(); return act('save'); }
+  if (e.key === 'Enter') { e.preventDefault(); return act('confirm'); }
+  if (e.key === 'u' || e.key === 'U') { e.preventDefault(); return act('undo'); }
   if (e.key === 'Backspace') { e.preventDefault(); return act('undo_instance'); }
-  if (e.key === 'r' || e.key === 'R') return act('reset');
+  if (e.key === 'r' || e.key === 'R') { e.preventDefault(); return act('reset'); }
   if (e.key === ' ') { e.preventDefault(); return act('next'); }
-  if (e.key === 'ArrowRight') return act('next');
-  if (e.key === 'ArrowLeft') return act('prev');
-  if (e.key === 'n' || e.key === 'N') return act('class_next');
-  if (e.key === 'p' || e.key === 'P') return act('class_prev');
-  if (e.key === 'f' || e.key === 'F') return act('toggle_flag');
-  if (e.key === 'e' || e.key === 'E') return toggleEditMode();
-  if (e.key === 't' || e.key === 'T') return act('revert_mask');
-  if (e.key === 'b' || e.key === 'B') return toggleBoxMode();
+  if (e.key === 'ArrowRight') { e.preventDefault(); return act('next'); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); return act('prev'); }
+  if (e.key === 'n' || e.key === 'N') { e.preventDefault(); return act('class_next'); }
+  if (e.key === 'p' || e.key === 'P') { e.preventDefault(); return act('class_prev'); }
+  if (e.key === 'e' || e.key === 'E') { e.preventDefault(); return toggleEditMode(); }
+  if (e.key === 't' || e.key === 'T') { e.preventDefault(); return act('revert_mask'); }
+  if (e.key === 'b' || e.key === 'B') { e.preventDefault(); return toggleBoxMode(); }
   if (e.key === '[') {
     e.preventDefault();
     brushRadiusEl.value = String(Math.max(1, Number(brushRadiusEl.value || 12) - 1));
@@ -1043,6 +1084,15 @@ window.addEventListener('keydown', async (e) => {
   if (e.key === '-' || e.key === '_') return zoomOut();
   if (e.key === '0') return zoomReset();
   if (/^[1-9]$/.test(e.key)) return setClass(Number(e.key) - 1);
+});
+
+window.addEventListener('keyup', (e) => {
+  const tag = (document.activeElement && document.activeElement.tagName) ? document.activeElement.tagName.toUpperCase() : "";
+  const isTypingContext = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+  if (isTypingContext) return;
+  if (e.key === ' ' || e.key === 'Enter') {
+    e.preventDefault();
+  }
 });
 
 updateBoxModeButton();
