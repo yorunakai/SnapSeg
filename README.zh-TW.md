@@ -49,14 +49,6 @@ python main.py
 
 開啟：`http://127.0.0.1:7861`
 
-區網模式：
-
-```bash
-python main.py --host 0.0.0.0 --port 7861
-```
-
-再從其他裝置開啟：`http://<SERVER_IP>:7861`
-
 ## 基本流程
 
 1. 選資料夾或圖片
@@ -95,12 +87,6 @@ python main.py --host 0.0.0.0 --port 7861
 暫存：
 
 - `outputs/<run>/autosave/<image_stem>_autosave.json`
-
-## 效能檢查
-
-```bash
-python profile_sam_latency.py --image examples/sample.jpg --runs 30 --points 2 --device auto
-```
 
 ## 專案結構
 
