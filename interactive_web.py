@@ -31,6 +31,19 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--out", type=Path, default=Path("outputs/interactive"), help="Output directory")
     p.add_argument("--host", type=str, default="127.0.0.1", help="Bind host")
     p.add_argument("--port", type=int, default=7861, help="Bind port")
+    p.add_argument(
+        "--backend",
+        type=str,
+        default="sam",
+        choices=["sam", "mobile_sam"],
+        help="Segmentation backend",
+    )
+    p.add_argument(
+        "--model-id",
+        type=str,
+        default="",
+        help="Optional Hugging Face model id override for selected backend",
+    )
     return p.parse_args()
 
 
@@ -95,7 +108,15 @@ class ImageSessionState:
 
 
 class AnnotatorSession:
-    def __init__(self, images: list[Path], class_list: list[str], out_dir: Path, source_path: str = "") -> None:
+    def __init__(
+        self,
+        images: list[Path],
+        class_list: list[str],
+        out_dir: Path,
+        source_path: str = "",
+        backend: Literal["sam", "mobile_sam"] = "sam",
+        model_id: str | None = None,
+    ) -> None:
         self.images = images
         self.class_list = class_list if class_list else ["object"]
         self.source_path = source_path
@@ -104,7 +125,7 @@ class AnnotatorSession:
         self.autosave_dir = self.out_dir / "autosave"
         self.autosave_dir.mkdir(parents=True, exist_ok=True)
 
-        self.service = SamEmbeddingCacheService()
+        self.service = SamEmbeddingCacheService(backend=backend, model_id=model_id)
         self.prefetch = PrefetchQueue(device=self.service.device, min_free_gb=2.0)
         self.save_manager = AsyncSaveManager()
         self.autosave_manager = AsyncAutosaveManager()
@@ -499,6 +520,10 @@ class AnnotatorSession:
                 "save_queue": self.save_manager.pending(),
                 "autosave_queue": self.autosave_manager.pending(),
                 "has_box_prompt": False,
+                "backend_requested": self.service.requested_backend,
+                "backend": self.service.backend,
+                "model_id": self.service.model_id,
+                "backend_warning": self.service.last_load_warning,
                 "prefetch_free_gb": 0.0,
                 "prefetch_paused_low_vram": False,
                 "instances_detail": [],
@@ -528,6 +553,10 @@ class AnnotatorSession:
             "save_queue": self.save_manager.pending(),
             "autosave_queue": self.autosave_manager.pending(),
             "has_box_prompt": self.current_box is not None,
+            "backend_requested": self.service.requested_backend,
+            "backend": self.service.backend,
+            "model_id": self.service.model_id,
+            "backend_warning": self.service.last_load_warning,
             "prefetch_free_gb": round(float(pf["free_gb"]), 2),
             "prefetch_paused_low_vram": bool(pf["paused_low_vram"]),
             "instances_detail": inst_detail,
@@ -826,6 +855,8 @@ async function getState() {
   statusEl.textContent =
     `Image: ${state.image_index}/${state.image_total} (${state.image_name})\\n` +
     `Class: ${state.class_list[state.class_idx]}  |  Instances: ${state.instances}  |  Box Prompt: ${state.has_box_prompt}\\n` +
+    `Backend(requested/effective): ${state.backend_requested} / ${state.backend}  |  Model: ${state.model_id}\\n` +
+    (state.backend_warning ? `Backend warning: ${state.backend_warning}\\n` : '') +
     `Points: ${state.points}  |  Score: ${state.score}  |  Decoder: ${state.latency_ms} ms\\n` +
     `Save Queue: ${state.save_queue}  |  Autosave Queue: ${state.autosave_queue}\\n` +
     `Prefetch Free VRAM: ${state.prefetch_free_gb} GB\\n` +
@@ -1143,7 +1174,15 @@ def main() -> None:
     if args.image is not None or args.input_dir is not None:
         images = [p for p in collect_images(args.image, args.input_dir) if p.exists()]
         source_path = str(args.image if args.image is not None else args.input_dir)
-    session = AnnotatorSession(images=images, class_list=classes, out_dir=args.out, source_path=source_path)
+    model_id = args.model_id.strip() or None
+    session = AnnotatorSession(
+        images=images,
+        class_list=classes,
+        out_dir=args.out,
+        source_path=source_path,
+        backend=args.backend,
+        model_id=model_id,
+    )
     app = build_app(session)
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
 

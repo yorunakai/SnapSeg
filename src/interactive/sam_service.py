@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import torch
@@ -32,10 +32,14 @@ class SamImageCache:
 class SamEmbeddingCacheService:
     def __init__(
         self,
-        model_id: str = "facebook/sam-vit-base",
+        backend: Literal["sam", "mobile_sam"] = "sam",
+        model_id: str | None = None,
         device: str | None = None,
     ) -> None:
-        self.model_id = model_id
+        self.requested_backend = backend
+        self.backend = backend
+        self.model_id = model_id or self._default_model_id(backend)
+        self.last_load_warning: str = ""
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self._processor: Any | None = None
         self._model: Any | None = None
@@ -48,17 +52,50 @@ class SamEmbeddingCacheService:
         self._reshape_h: int = 0
         self._reshape_w: int = 0
 
+    @staticmethod
+    def _default_model_id(backend: Literal["sam", "mobile_sam"]) -> str:
+        # Use a lightweight Transformers-compatible SAM checkpoint for the mobile_sam mode.
+        if backend == "mobile_sam":
+            return "nielsr/slimsam-50-uniform"
+        return "facebook/sam-vit-base"
+
     def _ensure_model(self) -> None:
         if self._processor is not None and self._model is not None:
             return
         from transformers import SamModel, SamProcessor
 
+        def _load(model_id: str, local_only: bool) -> tuple[Any, Any]:
+            processor = SamProcessor.from_pretrained(model_id, local_files_only=local_only)
+            model = SamModel.from_pretrained(model_id, local_files_only=local_only).to(self.device)
+            return processor, model
+
         try:
-            self._processor = SamProcessor.from_pretrained(self.model_id, local_files_only=True)
-            self._model = SamModel.from_pretrained(self.model_id, local_files_only=True).to(self.device)
+            self._processor, self._model = _load(self.model_id, local_only=True)
+            self.last_load_warning = ""
         except Exception:
-            self._processor = SamProcessor.from_pretrained(self.model_id)
-            self._model = SamModel.from_pretrained(self.model_id).to(self.device)
+            try:
+                self._processor, self._model = _load(self.model_id, local_only=False)
+                self.last_load_warning = ""
+            except Exception as exc:
+                # MobileSAM checkpoints on HF are not always Transformers-SAM compatible.
+                # Fallback to base SAM so the app still works instead of returning HTTP 400 on /api/config.
+                if self.backend == "mobile_sam":
+                    fallback_id = "facebook/sam-vit-base"
+                    try:
+                        self._processor, self._model = _load(fallback_id, local_only=True)
+                    except Exception:
+                        self._processor, self._model = _load(fallback_id, local_only=False)
+                    self.backend = "sam"
+                    self.model_id = fallback_id
+                    self.last_load_warning = (
+                        "Requested mobile_sam backend could not be loaded. "
+                        "Fell back to sam/facebook-sam-vit-base."
+                    )
+                else:
+                    raise RuntimeError(
+                        f"Failed to load SAM model '{self.model_id}'. "
+                        "Use --model-id to specify a valid Transformers SAM checkpoint."
+                    ) from exc
         self._model.eval()
 
     def set_image(self, image_path: Path) -> None:

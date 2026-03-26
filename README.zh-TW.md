@@ -13,6 +13,7 @@
 - 正負點提示分割
 - 框選提示（拖曳方框分割大型目標）
 - 混合提示（box + points）
+- 後端可切換：`sam` / `mobile_sam`
 - 縮放/平移，適合小目標
 - 單張圖多 instance 標註
 - 支援反悔（`Backspace` 撤回最後一筆已確認 instance）
@@ -41,7 +42,9 @@ python -m pip install -r requirements.txt
 
 ## 模型
 
-- 後端：`transformers` + `facebook/sam-vit-base`
+- 後端執行：`transformers` SAM 堆疊
+- `sam` 預設模型：`facebook/sam-vit-base`
+- `mobile_sam` 預設模型：`nielsr/slimsam-50-uniform`（Transformers 相容的輕量 SAM）
 - 首次執行自動下載權重（Hugging Face cache）
 
 ## 啟動
@@ -51,6 +54,20 @@ python main.py
 ```
 
 開啟：`http://127.0.0.1:7861`
+
+使用 MobileSAM 後端：
+
+```bash
+python main.py --backend mobile_sam
+```
+
+覆蓋模型 ID：
+
+```bash
+python main.py --backend mobile_sam --model-id <huggingface_model_id>
+```
+
+若選到的 `mobile_sam` 權重不相容於 Transformers SAM，SnapSeg 會自動降級到 `sam`（`facebook/sam-vit-base`），並在 UI 狀態欄顯示警告。
 
 ## 基本流程
 

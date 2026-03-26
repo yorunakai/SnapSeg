@@ -13,6 +13,7 @@ Web-based interactive segmentation annotation tool built around SAM.
 - Positive/negative point prompts
 - Box prompt (drag to segment large objects)
 - Mixed prompts (box + points)
+- Backend switch: `sam` / `mobile_sam`
 - Zoom/pan for tiny targets
 - Multi-instance annotation per image
 - Undo last confirmed instance (`Backspace`)
@@ -41,7 +42,9 @@ python -m pip install -r requirements.txt
 
 ## Model
 
-- Backend: `transformers` + `facebook/sam-vit-base`
+- Backend runtime: `transformers` SAM stack
+- Default `sam` model: `facebook/sam-vit-base`
+- Default `mobile_sam` model: `nielsr/slimsam-50-uniform` (Transformers-compatible lightweight SAM)
 - Weights download automatically on first run (Hugging Face cache)
 
 ## Run
@@ -51,6 +54,20 @@ python main.py
 ```
 
 Open: `http://127.0.0.1:7861`
+
+Run with MobileSAM backend:
+
+```bash
+python main.py --backend mobile_sam
+```
+
+Override model id:
+
+```bash
+python main.py --backend mobile_sam --model-id <huggingface_model_id>
+```
+
+If the selected `mobile_sam` checkpoint is not Transformers-SAM compatible, SnapSeg auto-falls back to `sam` (`facebook/sam-vit-base`) and shows a warning in UI status.
 
 ## Basic Workflow
 
