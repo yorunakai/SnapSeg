@@ -34,7 +34,7 @@ class PrefetchQueue:
         self.min_free_gb = float(min_free_gb)
         self._service = SamEmbeddingCacheService(device=device)
         self._lock = threading.Lock()
-        self._requested: Path | None = None
+        self._requested: list[Path] = []
         self._ready: dict[str, SamImageCache] = {}
         self._last_free_gb: float = 999.0
         self._paused_low_vram: bool = False
@@ -47,7 +47,12 @@ class PrefetchQueue:
 
     def request(self, image_path: Path) -> None:
         with self._lock:
-            self._requested = image_path
+            key = str(image_path)
+            if key in self._ready:
+                return
+            if any(str(p) == key for p in self._requested):
+                return
+            self._requested.append(image_path)
 
     def pop_ready(self, image_path: Path) -> SamImageCache | None:
         with self._lock:
@@ -63,7 +68,7 @@ class PrefetchQueue:
     def _loop(self) -> None:
         while not self._stop:
             with self._lock:
-                target = self._requested
+                target = self._requested.pop(0) if self._requested else None
             if target is None:
                 sleep(0.05)
                 continue
@@ -73,6 +78,8 @@ class PrefetchQueue:
                 self._last_free_gb = free_gb
                 self._paused_low_vram = free_gb < self.min_free_gb
             if free_gb < self.min_free_gb:
+                with self._lock:
+                    self._requested.insert(0, target)
                 sleep(0.1)
                 continue
 
@@ -81,8 +88,6 @@ class PrefetchQueue:
                 cache = self._service.snapshot_cache(to_cpu=True)
                 with self._lock:
                     self._ready[str(target)] = cache
-                    if self._requested == target:
-                        self._requested = None
             except Exception:
                 sleep(0.2)
 
@@ -135,6 +140,7 @@ class AsyncSaveManager:
 class AutosaveTask:
     json_path: Path
     payload: dict | None
+    masks: list[tuple[Path, np.ndarray]] | None = None
     delete_only: bool = False
 
 
@@ -151,8 +157,8 @@ class AsyncAutosaveManager:
     def stop(self) -> None:
         self._stop = True
 
-    def submit_write(self, json_path: Path, payload: dict) -> None:
-        self._q.put(AutosaveTask(json_path=json_path, payload=payload, delete_only=False))
+    def submit_write(self, json_path: Path, payload: dict, masks: list[tuple[Path, np.ndarray]] | None = None) -> None:
+        self._q.put(AutosaveTask(json_path=json_path, payload=payload, masks=masks, delete_only=False))
 
     def submit_delete(self, json_path: Path) -> None:
         self._q.put(AutosaveTask(json_path=json_path, payload=None, delete_only=True))
@@ -168,6 +174,9 @@ class AsyncAutosaveManager:
                     if task.json_path.exists():
                         task.json_path.unlink(missing_ok=True)
                     continue
+                for mask_path, mask_u8 in (task.masks or []):
+                    mask_path.parent.mkdir(parents=True, exist_ok=True)
+                    cv2.imwrite(str(mask_path), mask_u8)
                 task.json_path.parent.mkdir(parents=True, exist_ok=True)
                 task.json_path.write_text(json.dumps(task.payload, ensure_ascii=False, indent=2), encoding="utf-8")
             finally:

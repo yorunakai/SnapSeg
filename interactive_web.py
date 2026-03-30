@@ -163,6 +163,7 @@ class AnnotatorSession:
         self.last_score = 0.0
         self.base_bgr: np.ndarray | None = None
         self.polygon_epsilon_ratio = 0.005
+        self.prefetch_lookahead = 2
         self.restore_flags = bool(restore_flags)
 
         self.states: dict[str, ImageSessionState] = {
@@ -359,8 +360,21 @@ class AnnotatorSession:
         self.last_latency_ms = 0.0
         self.last_score = 0.0
         self._restore_autosave_for_current_image()
-        if self.current_idx + 1 < len(self.images):
-            self.prefetch.request(self.images[self.current_idx + 1])
+        self._request_prefetch_window()
+
+    def _request_prefetch_window(self) -> None:
+        if not self.has_images:
+            return
+        for ahead in range(1, self.prefetch_lookahead + 1):
+            future_idx = self.current_idx + ahead
+            if future_idx < len(self.images):
+                self.prefetch.request(self.images[future_idx])
+        prev_idx = self.current_idx - 1
+        if prev_idx >= 0:
+            self.prefetch.request(self.images[prev_idx])
+
+    def _submit_autosave_async(self) -> None:
+        self._write_autosave_if_dirty()
 
     def configure(self, source_path: str, classes_csv: str) -> None:
         p = Path(source_path).expanduser()
@@ -411,9 +425,10 @@ class AnnotatorSession:
             "flagged": bool(st.flagged),
             "instances": [],
         }
+        masks_to_write: list[tuple[Path, np.ndarray]] = []
         for i, (label_name, m, score, bbox_override) in enumerate(self._instances()):
             mask_path = self._autosave_mask_path(self.current_image, i, label_name)
-            cv2.imwrite(str(mask_path), (m.astype(np.uint8) * 255))
+            masks_to_write.append((mask_path, (m.astype(np.uint8) * 255)))
             bbox = bbox_override if bbox_override is not None else self._mask_bbox_xywh(m)
             payload["instances"].append(
                 {
@@ -424,7 +439,7 @@ class AnnotatorSession:
                     "mask_path": str(mask_path),
                 }
             )
-        self.autosave_manager.submit_write(autosave_json, payload)
+        self.autosave_manager.submit_write(autosave_json, payload, masks=masks_to_write)
         st.is_dirty = False
 
     def _run_predict(self) -> None:
@@ -672,16 +687,16 @@ class AnnotatorSession:
             self.remove_instance(int(index))
         elif action == "next":
             if self.current_idx < len(self.images) - 1:
-                self._write_autosave_if_dirty()
+                self._submit_autosave_async()
                 self._load_image(self.current_idx + 1)
         elif action == "prev":
             if self.current_idx > 0:
-                self._write_autosave_if_dirty()
+                self._submit_autosave_async()
                 self._load_image(self.current_idx - 1)
         elif action == "goto" and index is not None:
             target_idx = max(0, min(int(index) - 1, len(self.images) - 1))
             if target_idx != self.current_idx:
-                self._write_autosave_if_dirty()
+                self._submit_autosave_async()
                 self._load_image(target_idx)
         elif action == "class_next":
             self.class_idx = (self.class_idx + 1) % len(self.class_list)
