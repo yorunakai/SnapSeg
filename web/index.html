@@ -439,6 +439,7 @@ let brushY = null;
 let brushBusy = false;
 let queuedBrush = null;
 let lastBrushSentAt = 0;
+let embeddingPollTimer = null;
 
 function esc(s) {
   return String(s ?? '')
@@ -751,7 +752,7 @@ async function getState() {
     { k: 'Zoom', v: `${viewScale.toFixed(2)}x` },
   ];
   setStatusFieldRows(rows);
-  setStatusMessage(state.backend_warning || '');
+  setStatusMessage(state.embedding_error || state.backend_warning || '');
   epsEl.value = Number(state.polygon_epsilon_ratio || 0.005);
   epsText.textContent = `Current epsilon: ${Number(state.polygon_epsilon_ratio || 0.005).toFixed(4)}`;
   gotoEl.max = String(state.image_total);
@@ -767,6 +768,19 @@ async function getState() {
 
 async function drawFrame() {
   await Promise.all([getState(), getProgress()]);
+  if (state && state.ready && !state.embedding_ready) {
+    if (!embeddingPollTimer) {
+      embeddingPollTimer = setTimeout(async () => {
+        embeddingPollTimer = null;
+        if (state && state.ready && !state.embedding_ready) {
+          await drawFrame();
+        }
+      }, 300);
+    }
+  } else if (embeddingPollTimer) {
+    clearTimeout(embeddingPollTimer);
+    embeddingPollTimer = null;
+  }
   if (!state.ready) {
     hasFrame = true;
     renderCanvas();
@@ -910,7 +924,7 @@ async function applyConfig() {
     setStatusMessage("Please pick a folder/image path first.");
     return;
   }
-  showLoading('Loading source and preparing SAM embeddings...');
+  showLoading('Loading source...');
   const res = await fetch('/api/config', {
     method:'POST',
     headers:{'Content-Type':'application/json'},

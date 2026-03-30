@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import queue
 import threading
 import hashlib
 from dataclasses import dataclass
@@ -160,6 +161,14 @@ class AnnotatorSession:
         self.sam_mask: np.ndarray | None = None
         self.current_mask: np.ndarray | None = None
         self.embedding_loaded_for: Path | None = None
+        self.embedding_status = "idle"
+        self.embedding_error = ""
+        self.embedding_generation = 0
+        self._embed_queue: queue.Queue[tuple[Path, int]] = queue.Queue()
+        self._embed_lock = threading.Lock()
+        self._embed_thread = threading.Thread(target=self._embedding_worker, daemon=True, name="embed-worker")
+        self._embed_thread.start()
+        self._embedding_event = threading.Event()
         self.last_latency_ms = 0.0
         self.last_score = 0.0
         self.base_bgr: np.ndarray | None = None
@@ -345,18 +354,84 @@ class AnnotatorSession:
             st.instances = restored
             st.is_dirty = False
 
-    def _load_image(self, idx: int) -> None:
+    def _enqueue_embedding(self, image_path: Path, generation: int) -> None:
+        with self._embed_lock:
+            try:
+                while True:
+                    self._embed_queue.get_nowait()
+                    self._embed_queue.task_done()
+            except queue.Empty:
+                pass
+            self._embed_queue.put((image_path, generation))
+        logger.info("embed_enqueue image=%s gen=%s", image_path.name, generation)
+
+    def _embedding_worker(self) -> None:
+        while True:
+            target, generation = self._embed_queue.get()
+            try:
+                logger.info("embed_worker_start image=%s gen=%s", target.name, generation)
+
+                success = False
+                err_msg = ""
+                try:
+                    self.service.set_image(target)
+                    image_rgb = self.service.image_rgb.copy()
+                    success = True
+                except Exception as exc:
+                    image_rgb = None
+                    err_msg = str(exc)
+
+                should_predict = False
+                with self.lock:
+                    if (not self.has_images) or self.embedding_generation != generation or self.current_image != target:
+                        logger.info(
+                            "embed_worker_discard image=%s worker_gen=%s current_gen=%s current=%s",
+                            target.name,
+                            generation,
+                            self.embedding_generation,
+                            self.current_image.name if self.has_images else "<none>",
+                        )
+                        continue
+                    if success and image_rgb is not None:
+                        self.embedding_loaded_for = target
+                        self.embedding_status = "ready"
+                        self.embedding_error = ""
+                        self.base_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
+                        logger.info("embed_worker_ready image=%s gen=%s", target.name, generation)
+                        should_predict = bool(self.points or self.current_box is not None)
+                    else:
+                        self.embedding_status = "error"
+                        self.embedding_error = err_msg
+                        logger.error("embed_worker_error image=%s gen=%s err=%s", target.name, generation, err_msg)
+                    self._embedding_event.set()
+
+                    # If prompts were already provided while embedding was loading,
+                    # produce one prediction immediately so first interaction is not lost.
+                    if should_predict:
+                        self._run_predict()
+            finally:
+                self._embed_queue.task_done()
+
+    def _load_image(self, idx: int, trigger_embedding: bool = True) -> None:
         if not self.has_images:
             return
         self.current_idx = max(0, min(idx, len(self.images) - 1))
+        self.embedding_generation += 1
+        gen = self.embedding_generation
+        self._embedding_event.clear()
         self._image_state().visited = True
         cache = self.prefetch.pop_ready(self.current_image) if self.prefetch_enabled else None
         if cache is not None:
             self.service.load_cache(cache)
             self.embedding_loaded_for = self.current_image
+            self.embedding_status = "ready"
+            self.embedding_error = ""
             self.base_bgr = cv2.cvtColor(self.service.image_rgb, cv2.COLOR_RGB2BGR)
         else:
             self.embedding_loaded_for = None
+            # Keep it idle here; background loading is started explicitly below.
+            self.embedding_status = "loading"
+            self.embedding_error = ""
             self.base_bgr = self._read_image_bgr(self.current_image)
         self.points.clear()
         self.point_labels.clear()
@@ -367,6 +442,10 @@ class AnnotatorSession:
         self.last_score = 0.0
         self._restore_autosave_for_current_image()
         self._request_prefetch_window()
+        if self.embedding_loaded_for == self.current_image:
+            self._embedding_event.set()
+        elif trigger_embedding:
+            self._enqueue_embedding(self.current_image, gen)
 
     @staticmethod
     def _read_image_bgr(image_path: Path) -> np.ndarray:
@@ -379,21 +458,42 @@ class AnnotatorSession:
             raise RuntimeError(f"Failed to load image: {image_path}")
         return img
 
-    def _ensure_embedding_for_current_image(self) -> None:
+    def _prepare_current_embedding_blocking(self) -> None:
         if not self.has_images:
             return
         if self.embedding_loaded_for == self.current_image:
+            self.embedding_status = "ready"
+            self.embedding_error = ""
             return
-        cache = self.prefetch.pop_ready(self.current_image) if self.prefetch_enabled else None
-        if cache is not None:
-            self.service.load_cache(cache)
-        else:
-            self.service.set_image(self.current_image)
-        self.embedding_loaded_for = self.current_image
+        with self._embed_lock:
+            try:
+                while True:
+                    self._embed_queue.get_nowait()
+                    self._embed_queue.task_done()
+            except queue.Empty:
+                pass
+        self.embedding_status = "loading"
+        self.embedding_error = ""
+        try:
+            cache = self.prefetch.pop_ready(self.current_image) if self.prefetch_enabled else None
+            if cache is not None:
+                self.service.load_cache(cache)
+            else:
+                self.service.set_image(self.current_image)
+            self.embedding_loaded_for = self.current_image
+            self.embedding_status = "ready"
+            self.embedding_error = ""
+            self._embedding_event.set()
+        except Exception as exc:
+            self.embedding_status = "error"
+            self.embedding_error = str(exc)
+            self._embedding_event.set()
+            raise
 
     def _request_prefetch_window(self) -> None:
         if not self.has_images or not self.prefetch_enabled:
             return
+        self.prefetch.clear_pending()
         for ahead in range(1, self.prefetch_lookahead + 1):
             future_idx = self.current_idx + ahead
             if future_idx < len(self.images):
@@ -432,7 +532,10 @@ class AnnotatorSession:
         self.current_mask = None
         self.last_latency_ms = 0.0
         self.last_score = 0.0
-        self._load_image(0)
+        # During "Load Source", block until first-image embedding is ready
+        # so the first annotation click does not stall.
+        self._load_image(0, trigger_embedding=False)
+        self._prepare_current_embedding_blocking()
 
     def _write_autosave_if_dirty(self) -> None:
         if not self.has_images:
@@ -457,7 +560,7 @@ class AnnotatorSession:
         masks_to_write: list[tuple[Path, np.ndarray]] = []
         for i, (label_name, m, score, bbox_override) in enumerate(self._instances()):
             mask_path = self._autosave_mask_path(self.current_image, i, label_name)
-            masks_to_write.append((mask_path, (m.astype(np.uint8) * 255)))
+            masks_to_write.append((mask_path, (m.astype(np.uint8) * 255).copy()))
             bbox = bbox_override if bbox_override is not None else self._mask_bbox_xywh(m)
             payload["instances"].append(
                 {
@@ -471,16 +574,18 @@ class AnnotatorSession:
         self.autosave_manager.submit_write(autosave_json, payload, masks=masks_to_write)
         st.is_dirty = False
 
-    def _run_predict(self) -> None:
+    def _run_predict(self) -> bool:
         if not self.has_images:
-            return
+            return False
         if not self.points and self.current_box is None:
             self.sam_mask = None
             self.current_mask = None
             self.last_latency_ms = 0.0
             self.last_score = 0.0
-            return
-        self._ensure_embedding_for_current_image()
+            return False
+        if self.embedding_loaded_for != self.current_image:
+            self._enqueue_embedding(self.current_image, self.embedding_generation)
+            return False
         point_coords = [[float(x), float(y)] for x, y in self.points] if self.points else None
         point_labels = self.point_labels if self.points else None
         pred = self.service.predict(
@@ -494,30 +599,37 @@ class AnnotatorSession:
         self.current_mask = mask_u8.copy()
         self.last_latency_ms = pred.latency_ms
         self.last_score = pred.score
+        return True
 
-    def click(self, x: float, y: float, label: int) -> None:
+    def click(self, x: float, y: float, label: int) -> bool:
         if not self.has_images:
-            return
+            return False
         self.points.append((x, y))
         self.point_labels.append(1 if label > 0 else 0)
         self._image_state().is_dirty = True
-        self._run_predict()
+        if self.embedding_loaded_for != self.current_image:
+            self._enqueue_embedding(self.current_image, self.embedding_generation)
+            return False
+        return self._run_predict()
 
-    def set_box(self, x1: float, y1: float, x2: float, y2: float) -> None:
+    def set_box(self, x1: float, y1: float, x2: float, y2: float) -> bool:
         if not self.has_images:
-            return
+            return False
         if self.base_bgr is None:
-            return
+            return False
         h, w = self.base_bgr.shape[:2]
         lx = float(max(0.0, min(float(w - 1), min(x1, x2))))
         rx = float(max(0.0, min(float(w - 1), max(x1, x2))))
         ty = float(max(0.0, min(float(h - 1), min(y1, y2))))
         by = float(max(0.0, min(float(h - 1), max(y1, y2))))
         if (rx - lx) < 2.0 or (by - ty) < 2.0:
-            return
+            return False
         self.current_box = (lx, ty, rx, by)
         self._image_state().is_dirty = True
-        self._run_predict()
+        if self.embedding_loaded_for != self.current_image:
+            self._enqueue_embedding(self.current_image, self.embedding_generation)
+            return False
+        return self._run_predict()
 
     def confirm(self) -> bool:
         if not self.has_images:
@@ -811,6 +923,9 @@ class AnnotatorSession:
                 "backend_warning": self.service.last_load_warning,
                 "prefetch_free_gb": 0.0,
                 "prefetch_paused_low_vram": False,
+                "embedding_ready": False,
+                "embedding_status": "idle",
+                "embedding_error": "",
                 "instances_detail": [],
                 "flagged": False,
                 "has_mask": False,
@@ -854,6 +969,9 @@ class AnnotatorSession:
             "backend_warning": self.service.last_load_warning,
             "prefetch_free_gb": round(float(pf["free_gb"]), 2),
             "prefetch_paused_low_vram": bool(pf["paused_low_vram"]),
+            "embedding_ready": self.embedding_loaded_for == self.current_image,
+            "embedding_status": self.embedding_status,
+            "embedding_error": self.embedding_error,
             "instances_detail": inst_detail,
             "flagged": bool(self._image_state().flagged),
             "has_mask": self.current_mask is not None,

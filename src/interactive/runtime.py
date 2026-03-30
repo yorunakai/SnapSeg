@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import queue
 import threading
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from time import sleep
@@ -32,10 +33,12 @@ class PrefetchQueue:
     def __init__(self, device: str, min_free_gb: float = 2.0) -> None:
         self.device = device
         self.min_free_gb = float(min_free_gb)
+        self.max_retries = 3
         self._service = SamEmbeddingCacheService(device=device)
         self._lock = threading.Lock()
-        self._requested: list[Path] = []
+        self._requested: deque[Path] = deque()
         self._ready: dict[str, SamImageCache] = {}
+        self._retry_count: dict[str, int] = {}
         self._last_free_gb: float = 999.0
         self._paused_low_vram: bool = False
         self._stop = False
@@ -54,6 +57,11 @@ class PrefetchQueue:
                 return
             self._requested.append(image_path)
 
+    def clear_pending(self) -> None:
+        with self._lock:
+            self._requested.clear()
+            self._retry_count.clear()
+
     def pop_ready(self, image_path: Path) -> SamImageCache | None:
         with self._lock:
             return self._ready.pop(str(image_path), None)
@@ -68,7 +76,7 @@ class PrefetchQueue:
     def _loop(self) -> None:
         while not self._stop:
             with self._lock:
-                target = self._requested.pop(0) if self._requested else None
+                target = self._requested.popleft() if self._requested else None
             if target is None:
                 sleep(0.05)
                 continue
@@ -87,8 +95,18 @@ class PrefetchQueue:
                 self._service.set_image(target)
                 cache = self._service.snapshot_cache(to_cpu=True)
                 with self._lock:
-                    self._ready[str(target)] = cache
+                    key = str(target)
+                    self._ready[key] = cache
+                    self._retry_count.pop(key, None)
             except Exception:
+                with self._lock:
+                    key = str(target)
+                    retries = int(self._retry_count.get(key, 0)) + 1
+                    if retries <= self.max_retries:
+                        self._retry_count[key] = retries
+                        self._requested.append(target)
+                    else:
+                        self._retry_count.pop(key, None)
                 sleep(0.2)
 
 
