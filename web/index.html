@@ -6,14 +6,162 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>SnapSeg Interactive Annotator</title>
   <style>
-    :root { --bg:#0f1720; --card:#1b2530; --line:#2d3a48; --text:#e6eef7; --muted:#9fb2c8; --ok:#27c26c; --ng:#ff9f40; }
-    body { margin:0; background:linear-gradient(120deg,#0f1720,#121b24); color:var(--text); font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif; }
-    .wrap { display:grid; grid-template-columns: 340px 1fr 340px; gap:12px; padding:12px; height:100vh; box-sizing:border-box; }
+    :root { --bg:#0f1720; --card:#1b2530; --line:#2d3a48; --text:#e6eef7; --muted:#9fb2c8; --ok:#27c26c; --ng:#ff9f40; --topbar-h:56px; --radius-ui:6px; }
+    html, body { height:100%; }
+    body { margin:0; background:linear-gradient(120deg,#0f1720,#121b24); color:var(--text); font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif; overflow:hidden; }
+    .topBar {
+      height:var(--topbar-h);
+      border-bottom:1px solid #2a3948;
+      background:linear-gradient(180deg,#15212c,#101a23);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:22px;
+      padding:0 12px;
+      box-sizing:border-box;
+      position:sticky;
+      top:0;
+      z-index:50;
+      width:100%;
+      overflow:hidden;
+    }
+    .topZone {
+      min-width:0;
+      display:flex;
+      align-items:center;
+      gap:6px;
+      flex:1 1 0;
+    }
+    .topLeft { justify-content:flex-start; }
+    .topCenter { justify-content:center; }
+    .topRight { justify-content:flex-end; }
+    .topBtn {
+      border:1px solid #3a4d62;
+      border-radius:var(--radius-ui);
+      background:#243344;
+      color:#e6eef7;
+      height:34px;
+      padding:0 10px;
+      font-size:12px;
+      font-weight:700;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      cursor:pointer;
+      flex:none;
+    }
+    .topBtn:hover { filter:brightness(1.08); }
+    .topBtn svg { width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:1.6; }
+    .iconBtn {
+      width:32px;
+      height:32px;
+      padding:0;
+      justify-content:center;
+      border-radius:var(--radius-ui);
+    }
+    .topBtn.neutral { background:#243344; color:#d5e3f1; border-color:#3a4d62; }
+    .topBtn.undoLite { background:#2d3e50; color:#dce9f8; border-color:#44586e; }
+    .topBtn.save { background:#1a4a2e; color:#27c26c; border-color:#2a6a42; }
+    .topBtn.textBtn { padding:0 12px; }
+    .modeSeg {
+      display:inline-flex;
+      border:1px solid #3a4d62;
+      border-radius:var(--radius-ui);
+      overflow:hidden;
+      background:#1d2d3c;
+    }
+    .modeSeg .modeBtn {
+      height:32px;
+      min-width:64px;
+      border:none;
+      border-right:1px solid #344a5d;
+      border-radius:0;
+      background:transparent;
+      color:#cddbee;
+      padding:0 10px;
+      font-size:12px;
+      font-weight:700;
+      cursor:pointer;
+    }
+    .modeSeg .modeBtn:last-child { border-right:none; }
+    .modeSeg .modeBtn.active.pb { background:#162a44; color:#4a9eff; }
+    .modeSeg .modeBtn.active.br { background:#2a1f44; color:#9b7fe8; }
+    .topInput {
+      height:32px;
+      width:74px;
+      border:1px solid #3a4d62;
+      border-radius:var(--radius-ui);
+      background:#182430;
+      color:#e6eef7;
+      padding:0 8px;
+      box-sizing:border-box;
+    }
+    .gotoGroup {
+      display:inline-flex;
+      align-items:center;
+      gap:0;
+    }
+    .gotoGroup .topInput {
+      border-top-right-radius:0;
+      border-bottom-right-radius:0;
+      border-right:none;
+      width:76px;
+    }
+    .gotoGroup .topBtn {
+      border-top-left-radius:0;
+      border-bottom-left-radius:0;
+      min-width:42px;
+      padding:0 10px;
+    }
+    .wrap { display:grid; grid-template-columns: 340px 1fr 340px; gap:12px; padding:12px; height:calc(100vh - var(--topbar-h)); box-sizing:border-box; overflow:hidden; }
     .panel { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; }
     .controlPanel { overflow:auto; }
     .section { margin-bottom:10px; padding-bottom:10px; border-bottom:1px dashed #324252; }
     .section:last-child { border-bottom:none; margin-bottom:0; padding-bottom:0; }
-    .btn { width:100%; padding:10px; margin:6px 0; border:1px solid #3a4d62; border-radius:10px; background:#223142; color:#e6eef7; cursor:pointer; font-weight:600; }
+    .fold {
+      border:1px solid #314354;
+      border-radius:12px;
+      background:#15212d;
+      margin-bottom:10px;
+      overflow:hidden;
+    }
+    .fold > summary {
+      list-style:none;
+      cursor:pointer;
+      padding:10px 12px;
+      font-weight:700;
+      border-bottom:1px solid transparent;
+      background:#1a2a38;
+      user-select:none;
+    }
+    .fold > summary::-webkit-details-marker { display:none; }
+    .fold[open] > summary { border-bottom-color:#304456; }
+    .foldBody { padding:10px; }
+    .classTags {
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      max-height:150px;
+      overflow:auto;
+      padding:2px;
+    }
+    .classTag {
+      border:1px solid #3a4d62;
+      border-radius:var(--radius-ui);
+      background:#1f3040;
+      color:#dce9f8;
+      padding:6px 10px;
+      font-size:12px;
+      font-weight:700;
+      cursor:pointer;
+      white-space:nowrap;
+    }
+    .classTag.active {
+      border-color:#4fd08e;
+      background:#1d4a36;
+      color:#e9fff3;
+    }
+    .btn { width:100%; padding:10px; margin:6px 0; border:1px solid #3a4d62; border-radius:var(--radius-ui); background:#223142; color:#e6eef7; cursor:pointer; font-weight:600; }
     .btn:hover { filter:brightness(1.08); }
     .btn.primary { background:#1f7a4a; border-color:#2ea162; }
     .btn.warn { background:#7a4a1f; border-color:#a16a2e; }
@@ -21,7 +169,7 @@
     .btnCompact svg { width:14px; height:14px; opacity:0.95; }
     .btnCompact .lbl { font-size:12px; letter-spacing:0.1px; }
     .status { font-size:13px; line-height:1.6; color:var(--muted); white-space:pre-line; }
-    .canvasWrap { background:#0d141b; border:1px solid var(--line); border-radius:14px; height:calc(100vh - 24px); overflow:hidden; }
+    .canvasWrap { background:#0d141b; border:1px solid var(--line); border-radius:14px; height:100%; overflow:hidden; }
     .canvasStage { height:100%; display:flex; align-items:center; justify-content:center; padding:10px; box-sizing:border-box; }
     canvas { max-width: 100%; max-height: 100%; width:auto; height:auto; border-radius:10px; cursor:crosshair; }
     .inspector {
@@ -30,7 +178,7 @@
       border-radius:14px;
       padding:12px;
       overflow:auto;
-      height:calc(100vh - 24px);
+      height:100%;
       box-sizing:border-box;
     }
     .inspectorTitle { font-weight:700; margin:2px 0 8px 0; }
@@ -120,7 +268,7 @@
       border:1px solid #3a4d62;
       background:#1e2f40;
       color:#dce9f8;
-      border-radius:999px;
+      border-radius:var(--radius-ui);
       padding:6px 10px;
       font-size:12px;
       cursor:pointer;
@@ -138,7 +286,7 @@
     .thumbCard {
       border:1px solid #324658;
       background:#142331;
-      border-radius:10px;
+      border-radius:var(--radius-ui);
       padding:8px;
       display:flex;
       flex-direction:column;
@@ -149,7 +297,7 @@
     .thumbBox {
       width:100%;
       aspect-ratio: 4 / 3;
-      border-radius:8px;
+      border-radius:var(--radius-ui);
       background:#0f1a24;
       display:flex;
       align-items:center;
@@ -181,7 +329,7 @@
     .loadingCard {
       min-width: 280px;
       padding: 18px 20px;
-      border-radius: 14px;
+      border-radius: var(--radius-ui);
       border: 1px solid #3b4f62;
       background: #162331;
       box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
@@ -201,15 +349,18 @@
       100% { transform: rotate(360deg); }
     }
     @media (max-width: 1280px) {
-      .wrap { grid-template-columns: 320px 1fr; grid-template-areas: "left middle" "right middle"; height:auto; min-height:100vh; }
+      .wrap { grid-template-columns: 320px 1fr; grid-template-areas: "left middle" "right middle"; height:calc(100vh - var(--topbar-h)); min-height:0; }
       .controlPanel { grid-area:left; }
       .canvasWrap { grid-area:middle; }
       .inspector { grid-area:right; }
-      .canvasWrap { height:65vh; min-height:520px; }
-      .inspector { height:auto; min-height:320px; }
+      .canvasWrap { height:100%; min-height:0; }
+      .inspector { height:100%; min-height:0; }
     }
     @media (max-width: 900px) {
-      .wrap { grid-template-columns: 1fr; grid-template-areas: "left" "middle" "right"; }
+      body { overflow:auto; }
+      .topBar { --topbar-h:auto; height:auto; padding:8px; flex-direction:column; align-items:stretch; position:sticky; top:0; gap:8px; }
+      .topZone { flex-wrap:wrap; justify-content:flex-start; }
+      .wrap { grid-template-columns: 1fr; grid-template-areas: "left" "middle" "right"; height:auto; overflow:visible; }
       .canvasWrap { height:auto; min-height:unset; }
       .canvasStage { min-height:420px; }
       .inspector { height:auto; max-height:unset; }
@@ -239,105 +390,106 @@
       <div id="overviewGrid" class="overviewGrid"></div>
     </div>
   </div>
+  <div class="topBar">
+    <div class="topZone topLeft">
+      <button class="topBtn iconBtn neutral" onclick="act('prev')" title="Previous (Left)">
+        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <button class="topBtn iconBtn neutral" onclick="act('next')" title="Next (Space/Right)">
+        <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+      <button class="topBtn iconBtn neutral" onclick="zoomIn()" title="Zoom in (+)">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>
+      </button>
+      <button class="topBtn iconBtn neutral" onclick="zoomOut()" title="Zoom out (-)">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/><path d="M8 11h6"/></svg>
+      </button>
+      <button class="topBtn iconBtn neutral" onclick="zoomReset()" title="Reset view (0)">
+        <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>
+      </button>
+      <button class="topBtn iconBtn neutral" onclick="openOverview()" title="Overview">
+        <svg viewBox="0 0 24 24"><path d="M3 3h8v8H3z"/><path d="M13 3h8v5h-8z"/><path d="M13 10h8v11h-8z"/><path d="M3 13h8v8H3z"/></svg>
+      </button>
+      <div class="gotoGroup">
+        <input id="gotoIdx" class="topInput" type="number" min="1" step="1" placeholder="Index" title="Go to image index">
+        <button class="topBtn neutral" onclick="gotoImage()" title="Go to image index">Go</button>
+      </div>
+    </div>
+    <div class="topZone topCenter">
+      <div class="modeSeg" role="group" aria-label="Mode">
+        <button id="modePointBtn" class="modeBtn" onclick="setMode('point')" title="Point mode">Point</button>
+        <button id="modeBoxBtn" class="modeBtn" onclick="setMode('box')" title="Box mode (B)">Box</button>
+        <button id="modeBrushBtn" class="modeBtn" onclick="setMode('brush')" title="Brush mode (E)">Brush</button>
+      </div>
+    </div>
+    <div class="topZone topRight">
+      <button class="topBtn iconBtn undoLite" onclick="act('undo')" title="Undo point (U)">
+        <svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M20 20a8 8 0 0 0-8-8H4"/></svg>
+      </button>
+      <button class="topBtn iconBtn undoLite" onclick="act('undo_instance')" title="Undo instance (Backspace)">
+        <svg viewBox="0 0 24 24"><path d="M11 17l-5-5 5-5"/><path d="M18 17l-5-5 5-5"/></svg>
+      </button>
+      <button class="topBtn iconBtn neutral" onclick="act('reset')" title="Reset current prompt (R)">
+        <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>
+      </button>
+      <button class="topBtn iconBtn neutral" onclick="act('toggle_flag')" title="Flag (F)">
+        <svg viewBox="0 0 24 24"><path d="M5 3v18"/><path d="M5 4h10l-1.5 3L15 10H5"/></svg>
+      </button>
+      <button class="topBtn textBtn neutral" onclick="act('confirm')" title="Confirm (Enter)">
+        <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+        <span>Confirm</span>
+      </button>
+      <button class="topBtn textBtn save" onclick="act('save')" title="Save (S)">
+        <svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><path d="M8 21v-7h8v7"/></svg>
+        <span>Save</span>
+      </button>
+    </div>
+  </div>
   <div class="wrap">
     <div class="panel controlPanel">
       <div class="title">SnapSeg Interactive Annotator</div>
-      <div class="section">
-        <div style="margin-bottom:6px;">Select a source folder or a single image:</div>
-        <input id="sourcePath" type="text" readonly style="width:100%;padding:10px;border-radius:10px;background:#182430;color:#e6eef7;border:1px solid #33485f;" placeholder="Pick a folder or image path">
-        <div class="row">
-          <button class="btn" onclick="pickFolder()">Pick Folder</button>
-          <button class="btn" onclick="pickImage()">Pick Image</button>
+      <details class="fold" open>
+        <summary>Source</summary>
+        <div class="foldBody">
+          <div style="margin-bottom:6px;">Select a source folder or a single image:</div>
+          <input id="sourcePath" type="text" readonly style="width:100%;padding:10px;border-radius:10px;background:#182430;color:#e6eef7;border:1px solid #33485f;" placeholder="Pick a folder or image path">
+          <div class="row">
+            <button class="btn" onclick="pickFolder()">Pick Folder</button>
+            <button class="btn" onclick="pickImage()">Pick Image</button>
+          </div>
+          <button class="btn primary" onclick="applyConfig()">Load Source</button>
         </div>
-        <div style="margin-top:8px;margin-bottom:6px;">Annotation Classes (comma-separated)</div>
-        <input id="classInput" type="text" style="width:100%;padding:10px;border-radius:10px;background:#182430;color:#e6eef7;border:1px solid #33485f;" placeholder="scratch,particle,stain">
-        <button class="btn primary" onclick="applyConfig()">Load Source</button>
-      </div>
-      <div class="section">
-        <div style="margin-top:2px;margin-bottom:6px;">Class</div>
-        <select id="classSel" onchange="setClass(this.value)"></select>
-        <div class="row">
-          <button class="btn btnCompact" onclick="act('class_prev')" title="Previous Class (P)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg><span class="lbl">Class P</span>
-          </button>
-          <button class="btn btnCompact" onclick="act('class_next')" title="Next Class (N)">
-            <span class="lbl">Class N</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-          </button>
+      </details>
+      <details class="fold" open>
+        <summary>Classes</summary>
+        <div class="foldBody">
+          <div style="margin-top:2px;margin-bottom:6px;">Class List (comma-separated)</div>
+          <input id="classInput" type="text" style="width:100%;padding:10px;border-radius:10px;background:#182430;color:#e6eef7;border:1px solid #33485f;" placeholder="scratch,particle,stain">
+          <div style="margin-top:10px;margin-bottom:6px;">Active Class</div>
+          <div id="classTags" class="classTags"></div>
+          <div class="row">
+            <button class="btn btnCompact" onclick="act('class_prev')" title="Previous Class (P)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg><span class="lbl">Class P</span>
+            </button>
+            <button class="btn btnCompact" onclick="act('class_next')" title="Next Class (N)">
+              <span class="lbl">Class N</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+          </div>
         </div>
-      </div>
-      <div class="section">
-        <button class="btn primary btnCompact" onclick="act('save')" title="Save Current Image (S)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><path d="M8 21v-7h8v7"/></svg><span class="lbl">Save (S)</span>
-        </button>
-        <button class="btn btnCompact" onclick="act('confirm')" title="Confirm Current Instance (Enter)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg><span class="lbl">Confirm (Enter)</span>
-        </button>
-        <div class="row">
-          <button class="btn btnCompact" onclick="act('prev')" title="Previous (Left)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg><span class="lbl">Prev</span>
-          </button>
-          <button class="btn btnCompact" onclick="act('next')" title="Next (Space/Right)">
-            <span class="lbl">Next</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-          </button>
+      </details>
+      <details class="fold">
+        <summary>Settings</summary>
+        <div class="foldBody">
+          <div style="margin-top:6px;margin-bottom:6px;">Brush Radius</div>
+          <input id="brushRadius" type="range" min="1" max="64" step="1" value="12" style="width:100%;">
+          <div style="margin-top:10px;margin-bottom:6px;">Polygon Smoothing (epsilon)</div>
+          <input id="eps" type="range" min="0" max="0.02" step="0.0005" value="0.005" style="width:100%;">
+          <div class="row">
+            <button class="btn" onclick="applyEpsilon()">Apply Epsilon</button>
+          </div>
+          <div class="status" id="epsText"></div>
         </div>
-        <button class="btn btnCompact" onclick="openOverview()" title="Open Annotation Overview">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h8v8H3z"/><path d="M13 3h8v5h-8z"/><path d="M13 10h8v11h-8z"/><path d="M3 13h8v8H3z"/></svg><span class="lbl">Overview</span>
-        </button>
-        <div class="row">
-          <input id="gotoIdx" type="number" min="1" step="1" style="flex:1;padding:10px;border-radius:10px;background:#182430;color:#e6eef7;border:1px solid #33485f;" placeholder="Image index">
-          <button class="btn" style="width:120px" onclick="gotoImage()">Go</button>
-        </div>
-        <div class="row">
-          <button class="btn btnCompact" onclick="act('undo')" title="Undo Point (U)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14L4 9l5-5"/><path d="M20 20a8 8 0 0 0-8-8H4"/></svg><span class="lbl">Undo</span>
-          </button>
-          <button class="btn warn btnCompact" onclick="act('reset')" title="Reset Current (R)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg><span class="lbl">Reset</span>
-          </button>
-        </div>
-        <button class="btn btnCompact" onclick="act('toggle_flag')" title="Toggle Flag">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3v18"/><path d="M5 4h10l-1.5 3L15 10H5"/></svg><span class="lbl">Flag</span>
-        </button>
-        <button class="btn warn btnCompact" onclick="act('undo_instance')" title="Undo Last Instance (Backspace)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 17l-5-5 5-5"/><path d="M18 17l-5-5 5-5"/></svg><span class="lbl">Undo Inst</span>
-        </button>
-        <button id="boxModeBtn" class="btn btnCompact" onclick="toggleBoxMode()" title="Toggle Box Mode (B)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="14" height="14"/></svg><span class="lbl">Box (B): Off</span>
-        </button>
-        <button id="editModeBtn" class="btn btnCompact" onclick="toggleEditMode()" title="Toggle Edit Mask (E)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4z"/></svg><span class="lbl">Edit (E): Off</span>
-        </button>
-        <button id="brushTypeBtn" class="btn btnCompact" onclick="toggleBrushType()" title="Toggle Brush Add/Erase">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M7 14l5-9 5 9"/></svg><span class="lbl">Brush: Add</span>
-        </button>
-        <div style="margin-top:6px;margin-bottom:6px;">Brush Radius</div>
-        <input id="brushRadius" type="range" min="1" max="64" step="1" value="12" style="width:100%;">
-        <button class="btn btnCompact" onclick="act('revert_mask')" title="Revert to SAM Prediction (T)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg><span class="lbl">Revert (T)</span>
-        </button>
-      </div>
-      <div class="section">
-        <div style="margin-top:2px;margin-bottom:6px;">Polygon Smoothing (epsilon)</div>
-        <input id="eps" type="range" min="0" max="0.02" step="0.0005" value="0.005" style="width:100%;">
-        <div class="row">
-          <button class="btn" onclick="applyEpsilon()">Apply Epsilon</button>
-        </div>
-        <div class="status" id="epsText"></div>
-      </div>
-      <div class="section">
-        <div style="margin-top:2px;margin-bottom:6px;">Zoom</div>
-        <div class="row">
-          <button class="btn btnCompact" onclick="zoomIn()" title="Zoom In (+)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/><path d="M11 8v6"/><path d="M8 11h6"/></svg><span class="lbl">Zoom In</span>
-          </button>
-          <button class="btn btnCompact" onclick="zoomOut()" title="Zoom Out (-)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/><path d="M8 11h6"/></svg><span class="lbl">Zoom Out</span>
-          </button>
-        </div>
-        <button class="btn btnCompact" onclick="zoomReset()" title="Reset View (0)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg><span class="lbl">Reset (0)</span>
-        </button>
-      </div>
+      </details>
     </div>
     <div class="canvasWrap panel">
       <div class="canvasStage">
@@ -345,44 +497,60 @@
       </div>
     </div>
     <aside class="inspector">
-      <div class="inspectorTitle">Progress</div>
-      <div class="infoCard">
-        <div class="progressGrid">
-          <div class="metric"><div class="mk">Visited</div><div id="pVisited" class="mv">0</div></div>
-          <div class="metric"><div class="mk">Labeled</div><div id="pLabeled" class="mv">0</div></div>
-          <div class="metric"><div class="mk">Flagged</div><div id="pFlagged" class="mv">0</div></div>
-          <div class="metric"><div class="mk">Instances</div><div id="pInstances" class="mv">0</div></div>
+      <details class="fold" open>
+        <summary>Progress</summary>
+        <div class="foldBody">
+          <div class="infoCard">
+            <div class="progressGrid">
+              <div class="metric"><div class="mk">Visited</div><div id="pVisited" class="mv">0</div></div>
+              <div class="metric"><div class="mk">Labeled</div><div id="pLabeled" class="mv">0</div></div>
+              <div class="metric"><div class="mk">Flagged</div><div id="pFlagged" class="mv">0</div></div>
+              <div class="metric"><div class="mk">Instances</div><div id="pInstances" class="mv">0</div></div>
+            </div>
+            <div class="status" id="pSummary" style="margin-top:8px;"></div>
+            <div class="visitBar"><div id="pVisitFill" class="visitFill"></div></div>
+            <div id="pFlagList" class="status" style="margin-top:10px;"></div>
+          </div>
         </div>
-        <div class="status" id="pSummary" style="margin-top:8px;"></div>
-        <div class="visitBar"><div id="pVisitFill" class="visitFill"></div></div>
-        <div id="pFlagList" class="status" style="margin-top:10px;"></div>
-      </div>
-      <div class="inspectorTitle">Confirmed Instances</div>
-      <div class="infoCard">
-        <div id="instanceList" class="status"></div>
-      </div>
-      <div class="inspectorTitle">Session Status</div>
-      <div class="infoCard">
-        <div id="statusMessage" class="statusMsg"></div>
-        <div id="status" class="statusGrid"></div>
-      </div>
-      <div class="inspectorTitle">Shortcuts</div>
-      <div class="infoCard">
-        <div class="shortcutGrid">
-          <div><span class="skKey">Enter</span></div><div class="skDesc">Confirm current instance</div>
-          <div><span class="skKey">S</span></div><div class="skDesc">Save current image</div>
-          <div><span class="skKey">Space / Right</span></div><div class="skDesc">Next image</div>
-          <div><span class="skKey">Left</span></div><div class="skDesc">Previous image</div>
-          <div><span class="skKey">B</span></div><div class="skDesc">Toggle box mode</div>
-          <div><span class="skKey">E</span></div><div class="skDesc">Toggle edit mask mode</div>
-          <div><span class="skKey">Flag button</span></div><div class="skDesc">Toggle flag</div>
-          <div><span class="skKey">Backspace</span></div><div class="skDesc">Undo last instance</div>
-          <div><span class="skKey">U / R</span></div><div class="skDesc">Undo point / Reset current</div>
-          <div><span class="skKey">T</span></div><div class="skDesc">Revert mask to SAM output</div>
-          <div><span class="skKey">[ / ]</span></div><div class="skDesc">Brush radius - / +</div>
-          <div><span class="skKey">Wheel / Shift+Drag</span></div><div class="skDesc">Zoom / Pan view</div>
+      </details>
+      <details class="fold" open>
+        <summary>Confirmed Instances</summary>
+        <div class="foldBody">
+          <div class="infoCard">
+            <div id="instanceList" class="status"></div>
+          </div>
         </div>
-      </div>
+      </details>
+      <details class="fold">
+        <summary>Session Status</summary>
+        <div class="foldBody">
+          <div class="infoCard">
+            <div id="statusMessage" class="statusMsg"></div>
+            <div id="status" class="statusGrid"></div>
+          </div>
+        </div>
+      </details>
+      <details class="fold">
+        <summary>Shortcuts</summary>
+        <div class="foldBody">
+          <div class="infoCard">
+            <div class="shortcutGrid">
+              <div><span class="skKey">Enter</span></div><div class="skDesc">Confirm current instance</div>
+              <div><span class="skKey">S</span></div><div class="skDesc">Save current image</div>
+              <div><span class="skKey">Space / Right</span></div><div class="skDesc">Next image</div>
+              <div><span class="skKey">Left</span></div><div class="skDesc">Previous image</div>
+              <div><span class="skKey">B</span></div><div class="skDesc">Toggle box mode</div>
+              <div><span class="skKey">E</span></div><div class="skDesc">Toggle edit mask mode</div>
+              <div><span class="skKey">Flag button</span></div><div class="skDesc">Toggle flag</div>
+              <div><span class="skKey">Backspace</span></div><div class="skDesc">Undo last instance</div>
+              <div><span class="skKey">U / R</span></div><div class="skDesc">Undo point / Reset current</div>
+              <div><span class="skKey">T</span></div><div class="skDesc">Revert mask to SAM output</div>
+              <div><span class="skKey">[ / ]</span></div><div class="skDesc">Brush radius - / +</div>
+              <div><span class="skKey">Wheel / Shift+Drag</span></div><div class="skDesc">Zoom / Pan view</div>
+            </div>
+          </div>
+        </div>
+      </details>
     </aside>
   </div>
 <script>
@@ -390,15 +558,16 @@ const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
 const statusEl = document.getElementById('status');
 const statusMessageEl = document.getElementById('statusMessage');
-const classSel = document.getElementById('classSel');
+const classTagsEl = document.getElementById('classTags');
 const epsEl = document.getElementById('eps');
 const epsText = document.getElementById('epsText');
 const gotoEl = document.getElementById('gotoIdx');
 const sourceEl = document.getElementById('sourcePath');
 const classInputEl = document.getElementById('classInput');
 const instanceListEl = document.getElementById('instanceList');
-const boxModeBtn = document.getElementById('boxModeBtn');
-const editModeBtn = document.getElementById('editModeBtn');
+const modePointBtn = document.getElementById('modePointBtn');
+const modeBoxBtn = document.getElementById('modeBoxBtn');
+const modeBrushBtn = document.getElementById('modeBrushBtn');
 const brushTypeBtn = document.getElementById('brushTypeBtn');
 const brushRadiusEl = document.getElementById('brushRadius');
 const pVisitedEl = document.getElementById('pVisited');
@@ -576,14 +745,18 @@ function zoomOut() {
   zoomAt(cv.width / 2, cv.height / 2, 1.0 / 1.2);
 }
 
-function updateBoxModeButton() {
-  boxModeBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="14" height="14"/></svg><span class="lbl">Box (B): ${boxMode ? 'On' : 'Off'}</span>`;
-  boxModeBtn.style.borderColor = boxMode ? '#2ea162' : '#3a4d62';
+function updateModeButtons() {
+  const mode = boxMode ? 'box' : (editMode ? 'brush' : 'point');
+  modePointBtn.classList.toggle('active', mode === 'point');
+  modeBoxBtn.classList.toggle('active', mode === 'box');
+  modeBrushBtn.classList.toggle('active', mode === 'brush');
+  modePointBtn.classList.toggle('pb', mode === 'point');
+  modeBoxBtn.classList.toggle('pb', mode === 'box');
+  modeBrushBtn.classList.toggle('br', mode === 'brush');
 }
 
-function updateEditButtons() {
-  editModeBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4z"/></svg><span class="lbl">Edit (E): ${editMode ? 'On' : 'Off'}</span>`;
-  editModeBtn.style.borderColor = editMode ? '#2ea162' : '#3a4d62';
+function updateBrushButtons() {
+  if (!brushTypeBtn) return;
   brushTypeBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M7 14l5-9 5 9"/></svg><span class="lbl">Brush: ${brushErase ? 'Erase' : 'Add'}</span>`;
   brushTypeBtn.style.borderColor = brushErase ? '#a16a2e' : '#2ea162';
 }
@@ -595,25 +768,37 @@ function clearButtonFocus() {
   }
 }
 
-function toggleBoxMode() {
-  boxMode = !boxMode;
-  if (boxMode) editMode = false;
+function setMode(mode) {
+  if (mode === 'box') {
+    boxMode = true;
+    editMode = false;
+  } else if (mode === 'brush') {
+    boxMode = false;
+    editMode = true;
+  } else {
+    boxMode = false;
+    editMode = false;
+  }
   dragBox = false;
-  updateBoxModeButton();
-  updateEditButtons();
+  dragBrush = false;
+  updateModeButtons();
+  updateBrushButtons();
+  renderCanvas();
+}
+
+function toggleBoxMode() {
+  if (boxMode) setMode('point');
+  else setMode('box');
 }
 
 function toggleEditMode() {
-  editMode = !editMode;
-  if (editMode) boxMode = false;
-  dragBrush = false;
-  updateBoxModeButton();
-  updateEditButtons();
+  if (editMode) setMode('point');
+  else setMode('brush');
 }
 
 function toggleBrushType() {
   brushErase = !brushErase;
-  updateEditButtons();
+  updateBrushButtons();
 }
 
 function canvasToImage(e) {
@@ -707,6 +892,18 @@ function renderInstanceList() {
   instanceListEl.innerHTML = rows.join('');
 }
 
+function renderClassTags() {
+  if (!state || !Array.isArray(state.class_list)) {
+    classTagsEl.innerHTML = '';
+    return;
+  }
+  const rows = state.class_list.map((name, i) => {
+    const active = Number(i) === Number(state.class_idx) ? ' active' : '';
+    return `<button class="classTag${active}" onclick="setClass(${i})" title="Set class ${i + 1}: ${esc(name)}">${esc(name)}</button>`;
+  });
+  classTagsEl.innerHTML = rows.join('');
+}
+
 async function getProgress() {
   const res = await fetch('/api/progress');
   progress = await res.json();
@@ -747,21 +944,15 @@ async function getProgress() {
 async function getState() {
   const res = await fetch('/api/state');
   state = await res.json();
-  classSel.innerHTML = '';
-  state.class_list.forEach((c, i) => {
-    const op = document.createElement('option');
-    op.value = i;
-    op.textContent = `${i+1}. ${c}`;
-    if (i === state.class_idx) op.selected = true;
-    classSel.appendChild(op);
-  });
+  renderClassTags();
   const activeClass = (state.class_list && state.class_list.length > 0) ? state.class_list[state.class_idx] : '-';
+  const promptMode = boxMode ? 'Box' : (editMode ? 'Brush' : 'Point');
   const rows = [
     { k: 'Image', v: `${state.image_index}/${state.image_total} (${state.image_name || '-'})` },
     { k: 'Class', v: `${activeClass}` },
     { k: 'Instances', v: `${state.instances}` },
     { k: 'Flagged', v: `${state.flagged}` },
-    { k: 'Prompt Mode', v: `${boxMode ? 'Box' : 'Point'} (Box Prompt: ${state.has_box_prompt})` },
+    { k: 'Prompt Mode', v: `${promptMode} (Box Prompt: ${state.has_box_prompt})` },
     { k: 'Points', v: `${state.points}` },
     { k: 'Score', v: `${state.score}` },
     { k: 'Latency', v: `${state.latency_ms} ms` },
@@ -781,7 +972,6 @@ async function getState() {
   gotoEl.max = String(state.image_total);
   gotoEl.placeholder = `1 ~ ${state.image_total}`;
   if (state.source_path) sourceEl.value = state.source_path;
-  const activeTag = (document.activeElement && document.activeElement.tagName) ? document.activeElement.tagName.toUpperCase() : "";
   const editingClassInput = (document.activeElement === classInputEl);
   if (!editingClassInput && state.class_list && state.class_list.length > 0) {
     classInputEl.value = state.class_list.join(',');
@@ -1104,6 +1294,7 @@ window.addEventListener('keydown', async (e) => {
   if (e.key === 'ArrowLeft') { e.preventDefault(); return act('prev'); }
   if (e.key === 'n' || e.key === 'N') { e.preventDefault(); return act('class_next'); }
   if (e.key === 'p' || e.key === 'P') { e.preventDefault(); return act('class_prev'); }
+  if (e.key === 'f' || e.key === 'F') { e.preventDefault(); return act('toggle_flag'); }
   if (e.key === 'e' || e.key === 'E') { e.preventDefault(); return toggleEditMode(); }
   if (e.key === 't' || e.key === 'T') { e.preventDefault(); return act('revert_mask'); }
   if (e.key === 'b' || e.key === 'B') { e.preventDefault(); return toggleBoxMode(); }
@@ -1132,8 +1323,8 @@ window.addEventListener('keyup', (e) => {
   }
 });
 
-updateBoxModeButton();
-updateEditButtons();
+updateModeButtons();
+updateBrushButtons();
 drawFrame();
 </script>
 </body>
