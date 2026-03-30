@@ -32,6 +32,30 @@
       gap:6px;
       flex:1 1 0;
     }
+    .imageChip {
+      min-width:0;
+      max-width:340px;
+      height:32px;
+      border:1px solid #3a4d62;
+      border-radius:var(--radius-ui);
+      background:#1d2b38;
+      color:#dce9f8;
+      display:inline-flex;
+      align-items:center;
+      padding:0 10px;
+      box-sizing:border-box;
+      font-size:12px;
+      font-weight:600;
+      gap:6px;
+    }
+    .imageChipLabel { color:#9fb2c8; flex:none; }
+    .imageChipText {
+      min-width:0;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      display:block;
+    }
     .topLeft { justify-content:flex-start; }
     .topCenter { justify-content:center; }
     .topRight { justify-content:flex-end; }
@@ -360,6 +384,7 @@
       body { overflow:auto; }
       .topBar { --topbar-h:auto; height:auto; padding:8px; flex-direction:column; align-items:stretch; position:sticky; top:0; gap:8px; }
       .topZone { flex-wrap:wrap; justify-content:flex-start; }
+      .imageChip { max-width:100%; }
       .wrap { grid-template-columns: 1fr; grid-template-areas: "left" "middle" "right"; height:auto; overflow:visible; }
       .canvasWrap { height:auto; min-height:unset; }
       .canvasStage { min-height:420px; }
@@ -413,6 +438,10 @@
       <div class="gotoGroup">
         <input id="gotoIdx" class="topInput" type="number" min="1" step="1" placeholder="Index" title="Go to image index">
         <button class="topBtn neutral" onclick="gotoImage()" title="Go to image index">Go</button>
+      </div>
+      <div id="imageChip" class="imageChip" title="-">
+        <span class="imageChipLabel">Image</span>
+        <span id="imageChipText" class="imageChipText">-</span>
       </div>
     </div>
     <div class="topZone topCenter">
@@ -558,6 +587,8 @@ const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
 const statusEl = document.getElementById('status');
 const statusMessageEl = document.getElementById('statusMessage');
+const imageChipEl = document.getElementById('imageChip');
+const imageChipTextEl = document.getElementById('imageChipText');
 const classTagsEl = document.getElementById('classTags');
 const epsEl = document.getElementById('eps');
 const epsText = document.getElementById('epsText');
@@ -628,6 +659,18 @@ function setStatusFieldRows(rows) {
     const warnClass = r.warn ? ' warn' : '';
     return `<div class="k">${esc(r.k)}</div><div class="v${warnClass}">${esc(r.v)}</div>`;
   }).join('');
+}
+
+function updateImageChip() {
+  if (!imageChipEl || !imageChipTextEl || !state) return;
+  if (!state.ready) {
+    imageChipTextEl.textContent = '-';
+    imageChipEl.title = '-';
+    return;
+  }
+  const text = `${state.image_index}/${state.image_total} (${state.image_name || '-'})`;
+  imageChipTextEl.textContent = text;
+  imageChipEl.title = text;
 }
 
 function statusPills(item) {
@@ -944,6 +987,7 @@ async function getProgress() {
 async function getState() {
   const res = await fetch('/api/state');
   state = await res.json();
+  updateImageChip();
   renderClassTags();
   const activeClass = (state.class_list && state.class_list.length > 0) ? state.class_list[state.class_idx] : '-';
   const promptMode = boxMode ? 'Box' : (editMode ? 'Brush' : 'Point');
