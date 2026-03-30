@@ -999,16 +999,21 @@ async function drawFrame() {
     renderCanvas();
     return;
   }
-  if (currentImageName !== state.image_name) {
-    currentImageName = state.image_name;
-    zoomReset();
-  }
+  const imageChanged = currentImageName !== state.image_name;
+  if (imageChanged) currentImageName = state.image_name;
   const nextImg = new Image();
   nextImg.onload = () => {
     cv.width = state.width;
     cv.height = state.height;
     frameImg = nextImg;
     hasFrame = true;
+    // Reset after canvas size is updated; prevents stale pan/zoom offsets.
+    if (imageChanged) {
+      viewScale = 1.0;
+      viewTx = 0.0;
+      viewTy = 0.0;
+    }
+    clampViewTransform();
     renderCanvas();
   };
   nextImg.src = `/api/frame?fmt=png&ts=${Date.now()}`;
@@ -1141,6 +1146,11 @@ async function applyConfig() {
     hideLoading();
     return;
   }
+  // Force viewport reset after loading a new source to avoid stale pan/zoom state.
+  currentImageName = "";
+  viewScale = 1.0;
+  viewTx = 0.0;
+  viewTy = 0.0;
   await drawFrame();
   hideLoading();
 }
