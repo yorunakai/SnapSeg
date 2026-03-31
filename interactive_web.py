@@ -171,6 +171,8 @@ class AnnotatorSession:
         self.current_brush_radius: float | None = None
         self._last_brush_xy: tuple[int, int] | None = None
         self._last_brush_erase: bool | None = None
+        self._brush_base_mask: np.ndarray | None = None
+        self._brush_base_source: Literal["box_prompt", "mask_auto"] | None = None
         self.embedding_loaded_for: Path | None = None
         self.embedding_status = "idle"
         self.embedding_error = ""
@@ -470,6 +472,8 @@ class AnnotatorSession:
         self.current_brush_radius = None
         self._last_brush_xy = None
         self._last_brush_erase = None
+        self._brush_base_mask = None
+        self._brush_base_source = None
         self.last_latency_ms = 0.0
         self.last_score = 0.0
         self._restore_autosave_for_current_image()
@@ -635,6 +639,8 @@ class AnnotatorSession:
         self.current_brush_radius = None
         self._last_brush_xy = None
         self._last_brush_erase = None
+        self._brush_base_mask = None
+        self._brush_base_source = None
         self.last_latency_ms = pred.latency_ms
         self.last_score = pred.score
         return True
@@ -700,6 +706,8 @@ class AnnotatorSession:
         self.current_brush_radius = None
         self._last_brush_xy = None
         self._last_brush_erase = None
+        self._brush_base_mask = None
+        self._brush_base_source = None
         self.last_score = 0.0
         self.last_latency_ms = 0.0
         self._write_autosave_if_dirty()
@@ -719,18 +727,18 @@ class AnnotatorSession:
                 return False
             self.current_mask = np.zeros((h, w), dtype=np.uint8)
             self.sam_mask = None
-            self.current_mask_source = "brush"
-            self.current_brush_radius = float(rr)
+        if self.current_mask_source != "brush":
+            self._brush_base_mask = self.current_mask.copy() if self.current_mask is not None else None
+            src = self.current_mask_source
+            self._brush_base_source = src if src in {"box_prompt", "mask_auto"} else None
         target = self.current_mask.astype(np.uint8).copy()
         value = 0 if erase else 1
         if self._last_brush_xy is not None and self._last_brush_erase == erase:
             cv2.line(target, self._last_brush_xy, (cx, cy), color=value, thickness=max(1, rr * 2), lineType=cv2.LINE_AA)
         cv2.circle(target, (cx, cy), rr, color=value, thickness=-1, lineType=cv2.LINE_AA)
         self.current_mask = target
-        if self.current_mask_source is None:
-            self.current_mask_source = "brush"
-        if self.current_mask_source == "brush":
-            self.current_brush_radius = float(rr)
+        self.current_mask_source = "brush"
+        self.current_brush_radius = float(rr)
         self._last_brush_xy = (cx, cy)
         self._last_brush_erase = erase
         self._image_state().is_dirty = True
@@ -869,7 +877,21 @@ class AnnotatorSession:
         if not self.has_images and action not in {"set_epsilon"}:
             return
         if action == "undo":
-            if self.points:
+            if self.current_mask_source == "brush":
+                # Undo brush edits only; do not rollback point/box prompts.
+                if self._brush_base_mask is not None:
+                    self.current_mask = self._brush_base_mask.copy()
+                    self.current_mask_source = self._brush_base_source
+                else:
+                    self.current_mask = None
+                    self.current_mask_source = None
+                self.current_brush_radius = None
+                self._last_brush_xy = None
+                self._last_brush_erase = None
+                self._brush_base_mask = None
+                self._brush_base_source = None
+                self._image_state().is_dirty = True
+            elif self.points:
                 self.points.pop()
                 self.point_labels.pop()
                 self._run_predict()
@@ -877,20 +899,6 @@ class AnnotatorSession:
                 # In box mode, allow undo to clear the latest box prompt.
                 self.current_box = None
                 self._run_predict()
-            elif self.current_mask_source == "brush":
-                # In brush mode:
-                # - if SAM baseline exists, undo returns to SAM prediction;
-                # - for brush-only masks, undo clears current brush mask.
-                if self.sam_mask is not None:
-                    self.current_mask = self.sam_mask.copy()
-                    self.current_mask_source = "box_prompt" if self.current_box is not None else "mask_auto"
-                else:
-                    self.current_mask = None
-                    self.current_mask_source = None
-                    self.current_brush_radius = None
-                self._last_brush_xy = None
-                self._last_brush_erase = None
-                self._image_state().is_dirty = True
         elif action == "reset":
             self.points.clear()
             self.point_labels.clear()
@@ -901,6 +909,8 @@ class AnnotatorSession:
             self.current_brush_radius = None
             self._last_brush_xy = None
             self._last_brush_erase = None
+            self._brush_base_mask = None
+            self._brush_base_source = None
             self.last_score = 0.0
             self.last_latency_ms = 0.0
             # If there is no confirmed label, reset means clean state.
@@ -947,6 +957,8 @@ class AnnotatorSession:
                 self.current_brush_radius = None
                 self._last_brush_xy = None
                 self._last_brush_erase = None
+                self._brush_base_mask = None
+                self._brush_base_source = None
                 self._image_state().is_dirty = True
 
     def render_frame(self, image_format: Literal["jpg", "png"] = "png") -> bytes:
