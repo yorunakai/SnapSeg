@@ -273,6 +273,80 @@
       z-index: 9999;
       backdrop-filter: blur(2px);
     }
+    .settingsOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(8, 12, 18, 0.66);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9998;
+      backdrop-filter: blur(2px);
+      padding: 18px;
+      box-sizing: border-box;
+    }
+    .settingsCard {
+      width: min(760px, 96vw);
+      max-height: 84vh;
+      overflow: auto;
+      border-radius: 12px;
+      border: 1px solid #3b4f62;
+      background: #162331;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+      padding: 14px;
+      box-sizing: border-box;
+    }
+    .settingsHead {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .settingsTitle { font-size: 16px; font-weight: 700; color: #e8f0fb; }
+    .settingsHint { color: #9fb2c8; font-size: 12px; margin-bottom: 10px; }
+    .shortcutTable {
+      display: grid;
+      grid-template-columns: minmax(160px, 1fr) minmax(120px, 170px) minmax(140px, 180px);
+      gap: 8px;
+      align-items: center;
+    }
+    .shortcutHead { color: #9fb2c8; font-size: 12px; padding: 4px 2px; }
+    .shortcutCell {
+      min-height: 34px;
+      display: flex;
+      align-items: center;
+      background: #1b2a39;
+      border: 1px solid #31475d;
+      border-radius: 8px;
+      padding: 0 10px;
+      box-sizing: border-box;
+      color: #dce9f8;
+      font-size: 12px;
+    }
+    .shortcutKey {
+      font-family: Consolas, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: 0.2px;
+      font-size: 12px;
+      color: #dff4ff;
+    }
+    .shortcutActionBtn {
+      width: 100%;
+      height: 34px;
+      border: 1px solid #3a4d62;
+      border-radius: 8px;
+      background: #223142;
+      color: #e6eef7;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 12px;
+    }
+    .shortcutActionBtn.recording {
+      background: #5c3f1a;
+      border-color: #dca54f;
+      color: #ffe8b8;
+    }
+    .settingsTools { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
     .overviewOverlay {
       position: fixed;
       inset: 0;
@@ -428,6 +502,19 @@
       <div id="loadingText">Loading...</div>
     </div>
   </div>
+  <div id="settingsOverlay" class="settingsOverlay" onclick="closeSettings()">
+    <div class="settingsCard" onclick="event.stopPropagation()">
+      <div class="settingsHead">
+        <div class="settingsTitle">Settings</div>
+        <button class="btn flagJump" onclick="closeSettings()">Close</button>
+      </div>
+      <div id="settingsHint" class="settingsHint">Customize shortcuts. Click "Set" then press a key combination.</div>
+      <div id="shortcutTable" class="shortcutTable"></div>
+      <div class="settingsTools">
+        <button class="btn" onclick="resetShortcuts()">Reset Defaults</button>
+      </div>
+    </div>
+  </div>
   <div id="overviewOverlay" class="overviewOverlay" onclick="closeOverview()">
     <div class="overviewCard" onclick="event.stopPropagation()">
       <div class="overviewHead">
@@ -499,6 +586,9 @@
       <button id="btnSave" class="topBtn textBtn save" onclick="act('save')" title="Save (S)">
         <svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><path d="M8 21v-7h8v7"/></svg>
         <span>Save</span>
+      </button>
+      <button id="btnSettings" class="topBtn iconBtn neutral" onclick="openSettings()" title="Settings">
+        <svg viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z"/><path d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a2 2 0 0 1 0 2.8l-.1.1a2 2 0 0 1-2.8 0l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V20a2 2 0 0 1-2 2h-.2a2 2 0 0 1-2-2v-.2a1 1 0 0 0-.6-.9 1 1 0 0 0-1.1.2l-.1.1a2 2 0 0 1-2.8 0l-.1-.1a2 2 0 0 1 0-2.8l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H4a2 2 0 0 1-2-2v-.2a2 2 0 0 1 2-2h.2a1 1 0 0 0 .9-.6 1 1 0 0 0-.2-1.1l-.1-.1a2 2 0 0 1 0-2.8l.1-.1a2 2 0 0 1 2.8 0l.1.1a1 1 0 0 0 1.1.2 1 1 0 0 0 .6-.9V4a2 2 0 0 1 2-2h.2a2 2 0 0 1 2 2v.2a1 1 0 0 0 .6.9 1 1 0 0 0 1.1-.2l.1-.1a2 2 0 0 1 2.8 0l.1.1a2 2 0 0 1 0 2.8l-.1.1a1 1 0 0 0-.2 1.1 1 1 0 0 0 .9.6h.2a2 2 0 0 1 2 2v.2a2 2 0 0 1-2 2h-.2a1 1 0 0 0-.9.6z"/></svg>
       </button>
     </div>
   </div>
@@ -645,6 +735,9 @@ const pVisitFillEl = document.getElementById('pVisitFill');
 const pFlagListEl = document.getElementById('pFlagList');
 const overviewOverlayEl = document.getElementById('overviewOverlay');
 const overviewGridEl = document.getElementById('overviewGrid');
+const settingsOverlayEl = document.getElementById('settingsOverlay');
+const shortcutTableEl = document.getElementById('shortcutTable');
+const settingsHintEl = document.getElementById('settingsHint');
 const loadingOverlay = document.getElementById('loadingOverlay');
 const loadingText = document.getElementById('loadingText');
 let state = null;
@@ -677,6 +770,32 @@ let lastBrushSentAt = 0;
 let embeddingPollTimer = null;
 let modelPollTimer = null;
 let brushLineStart = null;
+let recordingShortcutId = null;
+
+const SHORTCUT_STORAGE_KEY = 'snapseg.shortcuts.v1';
+const shortcutSpecs = [
+  { id: 'save', label: 'Save', default: 'S', handler: () => act('save') },
+  { id: 'confirm', label: 'Confirm', default: 'Enter', handler: () => act('confirm') },
+  { id: 'undo', label: 'Undo Point', default: 'U', handler: () => act('undo') },
+  { id: 'undo_instance', label: 'Undo Instance', default: 'Backspace', handler: () => act('undo_instance') },
+  { id: 'reset', label: 'Reset Prompt', default: 'R', handler: () => act('reset') },
+  { id: 'next', label: 'Next Image (Space)', default: 'Space', handler: () => act('next') },
+  { id: 'next_arrow', label: 'Next Image (Right)', default: 'ArrowRight', handler: () => act('next') },
+  { id: 'prev', label: 'Prev Image', default: 'ArrowLeft', handler: () => act('prev') },
+  { id: 'class_next', label: 'Class Next', default: 'N', handler: () => act('class_next') },
+  { id: 'class_prev', label: 'Class Prev', default: 'P', handler: () => act('class_prev') },
+  { id: 'toggle_flag', label: 'Toggle Flag', default: 'F', handler: () => act('toggle_flag') },
+  { id: 'toggle_edit', label: 'Toggle Brush Mode', default: 'E', handler: () => toggleEditMode() },
+  { id: 'toggle_box', label: 'Toggle Box Mode', default: 'B', handler: () => toggleBoxMode() },
+  { id: 'revert_mask', label: 'Revert Brush Edit', default: 'T', handler: () => act('revert_mask') },
+  { id: 'zoom_in', label: 'Zoom In', default: '+', handler: () => zoomIn() },
+  { id: 'zoom_out', label: 'Zoom Out', default: '-', handler: () => zoomOut() },
+  { id: 'zoom_reset', label: 'Zoom Reset', default: '0', handler: () => zoomReset() },
+  { id: 'undo_ctrl', label: 'Undo (Ctrl+Z)', default: 'Ctrl+Z', handler: () => act('undo') },
+];
+const defaultShortcuts = Object.fromEntries(shortcutSpecs.map((s) => [s.id, s.default]));
+const shortcutHandlers = Object.fromEntries(shortcutSpecs.map((s) => [s.id, s.handler]));
+let userShortcuts = { ...defaultShortcuts };
 
 function esc(s) {
   return String(s ?? '')
@@ -689,6 +808,94 @@ function esc(s) {
 
 function setStatusMessage(msg) {
   statusMessageEl.textContent = msg || '';
+}
+
+function normalizeKeyName(key) {
+  if (!key) return '';
+  if (key === ' ') return 'Space';
+  if (key === 'Esc') return 'Escape';
+  if (key.length === 1) return key.toUpperCase();
+  return key;
+}
+
+function eventToShortcut(e) {
+  const key = normalizeKeyName(e.key);
+  if (!key || key === 'Control' || key === 'Shift' || key === 'Alt' || key === 'Meta') return '';
+  const mods = [];
+  if (e.ctrlKey || e.metaKey) mods.push('Ctrl');
+  if (e.altKey) mods.push('Alt');
+  if (e.shiftKey) mods.push('Shift');
+  return `${mods.length ? `${mods.join('+')}+` : ''}${key}`;
+}
+
+function saveShortcuts() {
+  localStorage.setItem(SHORTCUT_STORAGE_KEY, JSON.stringify(userShortcuts));
+}
+
+function loadShortcuts() {
+  let parsed = {};
+  try {
+    parsed = JSON.parse(localStorage.getItem(SHORTCUT_STORAGE_KEY) || '{}') || {};
+  } catch {
+    parsed = {};
+  }
+  userShortcuts = { ...defaultShortcuts };
+  for (const spec of shortcutSpecs) {
+    const raw = parsed[spec.id];
+    if (typeof raw === 'string' && raw.trim()) userShortcuts[spec.id] = raw.trim();
+  }
+}
+
+function getShortcutToActionMap() {
+  const m = {};
+  for (const spec of shortcutSpecs) {
+    const k = userShortcuts[spec.id];
+    if (k) m[k] = spec.id;
+  }
+  return m;
+}
+
+function renderShortcutTable() {
+  if (!shortcutTableEl) return;
+  const rows = [
+    '<div class="shortcutHead">Action</div><div class="shortcutHead">Key</div><div class="shortcutHead">Bind</div>'
+  ];
+  for (const spec of shortcutSpecs) {
+    const key = userShortcuts[spec.id] || '-';
+    const rec = recordingShortcutId === spec.id;
+    rows.push(`<div class="shortcutCell">${esc(spec.label)}</div>`);
+    rows.push(`<div class="shortcutCell shortcutKey">${esc(key)}</div>`);
+    rows.push(
+      `<button class="shortcutActionBtn${rec ? ' recording' : ''}" onclick="startShortcutRecord('${spec.id}')">${rec ? 'Press Key...' : 'Set'}</button>`
+    );
+  }
+  shortcutTableEl.innerHTML = rows.join('');
+}
+
+function openSettings() {
+  recordingShortcutId = null;
+  if (settingsHintEl) settingsHintEl.textContent = 'Customize shortcuts. Click "Set" then press a key combination.';
+  renderShortcutTable();
+  settingsOverlayEl.style.display = 'flex';
+}
+
+function closeSettings() {
+  recordingShortcutId = null;
+  settingsOverlayEl.style.display = 'none';
+}
+
+function startShortcutRecord(actionId) {
+  recordingShortcutId = actionId;
+  if (settingsHintEl) settingsHintEl.textContent = 'Press a shortcut key now. Press Escape to cancel.';
+  renderShortcutTable();
+}
+
+function resetShortcuts() {
+  userShortcuts = { ...defaultShortcuts };
+  saveShortcuts();
+  recordingShortcutId = null;
+  if (settingsHintEl) settingsHintEl.textContent = 'Shortcuts reset to defaults.';
+  renderShortcutTable();
 }
 
 function setStatusFieldRows(rows) {
@@ -1493,6 +1700,33 @@ window.addEventListener('mouseup', async () => {
 });
 
 window.addEventListener('keydown', async (e) => {
+  if (recordingShortcutId) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.key === 'Escape') {
+      recordingShortcutId = null;
+      if (settingsHintEl) settingsHintEl.textContent = 'Shortcut recording canceled.';
+      renderShortcutTable();
+      return;
+    }
+    const shortcut = eventToShortcut(e);
+    if (!shortcut) return;
+    const owner = shortcutSpecs.find((s) => userShortcuts[s.id] === shortcut && s.id !== recordingShortcutId);
+    if (owner) {
+      if (settingsHintEl) settingsHintEl.textContent = `Conflict: "${shortcut}" is already used by ${owner.label}.`;
+      return;
+    }
+    userShortcuts[recordingShortcutId] = shortcut;
+    saveShortcuts();
+    if (settingsHintEl) settingsHintEl.textContent = `Saved: ${shortcutSpecs.find((s) => s.id === recordingShortcutId)?.label || 'Shortcut'} = ${shortcut}`;
+    recordingShortcutId = null;
+    renderShortcutTable();
+    return;
+  }
+  if (e.key === 'Escape' && settingsOverlayEl.style.display === 'flex') {
+    closeSettings();
+    return;
+  }
   if (e.key === 'Escape' && overviewOverlayEl.style.display === 'block') {
     closeOverview();
     return;
@@ -1505,41 +1739,25 @@ window.addEventListener('keydown', async (e) => {
   const tag = (document.activeElement && document.activeElement.tagName) ? document.activeElement.tagName.toUpperCase() : "";
   const isTypingContext = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   if (isTypingContext) return;
-  if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'z' || e.key === 'Z')) {
-    e.preventDefault();
-    return act('undo');
-  }
-  if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (tag === 'BUTTON' && (e.key === ' ' || e.key === 'Enter')) {
     e.preventDefault();
   }
-  if (e.key === 's' || e.key === 'S') { e.preventDefault(); return act('save'); }
-  if (e.key === 'Enter') { e.preventDefault(); return act('confirm'); }
-  if (e.key === 'u' || e.key === 'U') { e.preventDefault(); return act('undo'); }
-  if (e.key === 'Backspace') { e.preventDefault(); return act('undo_instance'); }
-  if (e.key === 'r' || e.key === 'R') { e.preventDefault(); return act('reset'); }
-  if (e.key === ' ') { e.preventDefault(); return act('next'); }
-  if (e.key === 'ArrowRight') { e.preventDefault(); return act('next'); }
-  if (e.key === 'ArrowLeft') { e.preventDefault(); return act('prev'); }
-  if (e.key === 'n' || e.key === 'N') { e.preventDefault(); return act('class_next'); }
-  if (e.key === 'p' || e.key === 'P') { e.preventDefault(); return act('class_prev'); }
-  if (e.key === 'f' || e.key === 'F') { e.preventDefault(); return act('toggle_flag'); }
-  if (e.key === 'e' || e.key === 'E') { e.preventDefault(); return toggleEditMode(); }
-  if (e.key === 't' || e.key === 'T') { e.preventDefault(); return act('revert_mask'); }
-  if (e.key === 'b' || e.key === 'B') { e.preventDefault(); return toggleBoxMode(); }
-  if (e.key === '[') {
+  const shortcut = eventToShortcut(e);
+  const actionId = getShortcutToActionMap()[shortcut];
+  if (actionId && shortcutHandlers[actionId]) {
+    e.preventDefault();
+    return shortcutHandlers[actionId]();
+  }
+  if (normalizeKeyName(e.key) === '[') {
     e.preventDefault();
     brushRadiusEl.value = String(Math.max(1, Number(brushRadiusEl.value || 12) - 1));
     return renderCanvas();
   }
-  if (e.key === ']') {
+  if (normalizeKeyName(e.key) === ']') {
     e.preventDefault();
     brushRadiusEl.value = String(Math.min(64, Number(brushRadiusEl.value || 12) + 1));
     return renderCanvas();
   }
-  if (e.key === '+' || e.key === '=') return zoomIn();
-  if (e.key === '-' || e.key === '_') return zoomOut();
-  if (e.key === '0') return zoomReset();
   if (/^[1-9]$/.test(e.key)) return setClass(Number(e.key) - 1);
 });
 
@@ -1554,6 +1772,7 @@ window.addEventListener('keyup', (e) => {
 
 updateModeButtons();
 updateBrushButtons();
+loadShortcuts();
 drawFrame();
 </script>
 </body>
