@@ -80,6 +80,27 @@ outputs/<run>/<image_stem>/
 
 outputs/<run>/autosave/
   <image_stem>_<image_path_hash>_autosave.json
+
+outputs/<run>/dataset/
+  train/images/*
+  train/labels/*
+  val/images/        (自動建立)
+  val/labels/        (自動建立)
+  test/images/       (自動建立)
+  test/labels/       (自動建立)
+  classes.txt
+  dataset.yaml
+```
+
+`dataset.yaml` 會自動生成為：
+
+```yaml
+train: <abs_path>/train/images
+val:   <abs_path>/val/images
+test:  <abs_path>/test/images
+
+nc: <num_classes>
+names: [class1, class2, ...]
 ```
 
 ## 需求

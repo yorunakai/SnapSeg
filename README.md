@@ -80,6 +80,27 @@ outputs/<run>/<image_stem>/
 
 outputs/<run>/autosave/
   <image_stem>_<image_path_hash>_autosave.json
+
+outputs/<run>/dataset/
+  train/images/*
+  train/labels/*
+  val/images/        (created)
+  val/labels/        (created)
+  test/images/       (created)
+  test/labels/       (created)
+  classes.txt
+  dataset.yaml
+```
+
+`dataset.yaml` is auto-generated in this format:
+
+```yaml
+train: <abs_path>/train/images
+val:   <abs_path>/val/images
+test:  <abs_path>/test/images
+
+nc: <num_classes>
+names: [class1, class2, ...]
 ```
 
 ## Requirements
