@@ -1237,6 +1237,18 @@ function enqueueBrush(x, y, erase) {
   pumpBrush();
 }
 
+async function endBrushStroke() {
+  if (!state || !state.ready) return;
+  while (brushBusy || queuedBrush) {
+    await new Promise((r) => setTimeout(r, 20));
+  }
+  await fetch('/api/action', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'brush_end'})
+  });
+}
+
 async function applyEpsilon() {
   if (!state || !state.ready) return;
   clearButtonFocus();
@@ -1437,6 +1449,7 @@ window.addEventListener('mouseup', async () => {
   }
   if (dragBrush) {
     dragBrush = false;
+    await endBrushStroke();
   }
 });
 

@@ -195,6 +195,8 @@ class AnnotatorSession:
         self._last_brush_erase: bool | None = None
         self._brush_base_mask: np.ndarray | None = None
         self._brush_base_source: Literal["box_prompt", "mask_auto"] | None = None
+        self._brush_undo_stack: list[tuple[np.ndarray | None, Literal["box_prompt", "mask_auto", "brush"] | None, float | None]] = []
+        self._brush_stroke_active = False
         self.embedding_loaded_for: Path | None = None
         self.embedding_status = "idle"
         self.embedding_error = ""
@@ -504,6 +506,8 @@ class AnnotatorSession:
         self._last_brush_erase = None
         self._brush_base_mask = None
         self._brush_base_source = None
+        self._brush_undo_stack.clear()
+        self._brush_stroke_active = False
         self.last_latency_ms = 0.0
         self.last_score = 0.0
         self._restore_autosave_for_current_image()
@@ -669,6 +673,8 @@ class AnnotatorSession:
         self._last_brush_erase = None
         self._brush_base_mask = None
         self._brush_base_source = None
+        self._brush_undo_stack.clear()
+        self._brush_stroke_active = False
         self.last_latency_ms = pred.latency_ms
         self.last_score = pred.score
         return True
@@ -736,6 +742,8 @@ class AnnotatorSession:
         self._last_brush_erase = None
         self._brush_base_mask = None
         self._brush_base_source = None
+        self._brush_undo_stack.clear()
+        self._brush_stroke_active = False
         self.last_score = 0.0
         self.last_latency_ms = 0.0
         self._write_autosave_if_dirty()
@@ -755,6 +763,14 @@ class AnnotatorSession:
                 return False
             self.current_mask = np.zeros((h, w), dtype=np.uint8)
             self.sam_mask = None
+        if not self._brush_stroke_active:
+            prev_mask = self.current_mask.copy() if self.current_mask is not None else None
+            prev_source = self.current_mask_source
+            prev_radius = self.current_brush_radius
+            self._brush_undo_stack.append((prev_mask, prev_source, prev_radius))
+            if len(self._brush_undo_stack) > 256:
+                self._brush_undo_stack.pop(0)
+            self._brush_stroke_active = True
         if self.current_mask_source != "brush":
             self._brush_base_mask = self.current_mask.copy() if self.current_mask is not None else None
             src = self.current_mask_source
@@ -907,18 +923,26 @@ class AnnotatorSession:
             return
         if action == "undo":
             if self.current_mask_source == "brush":
-                # Undo brush edits only; do not rollback point/box prompts.
-                if self._brush_base_mask is not None:
+                # Undo brush edits per stroke; fallback to base rollback only if stack is empty.
+                if self._brush_undo_stack:
+                    prev_mask, prev_source, prev_radius = self._brush_undo_stack.pop()
+                    self.current_mask = prev_mask.copy() if prev_mask is not None else None
+                    self.current_mask_source = prev_source
+                    self.current_brush_radius = prev_radius
+                elif self._brush_base_mask is not None:
                     self.current_mask = self._brush_base_mask.copy()
                     self.current_mask_source = self._brush_base_source
+                    self.current_brush_radius = None
                 else:
                     self.current_mask = None
                     self.current_mask_source = None
-                self.current_brush_radius = None
+                    self.current_brush_radius = None
                 self._last_brush_xy = None
                 self._last_brush_erase = None
-                self._brush_base_mask = None
-                self._brush_base_source = None
+                self._brush_stroke_active = False
+                if not self._brush_undo_stack:
+                    self._brush_base_mask = None
+                    self._brush_base_source = None
                 self._image_state().is_dirty = True
             elif self.points:
                 self.points.pop()
@@ -940,6 +964,8 @@ class AnnotatorSession:
             self._last_brush_erase = None
             self._brush_base_mask = None
             self._brush_base_source = None
+            self._brush_undo_stack.clear()
+            self._brush_stroke_active = False
             self.last_score = 0.0
             self.last_latency_ms = 0.0
             # If there is no confirmed label, reset means clean state.
@@ -988,7 +1014,13 @@ class AnnotatorSession:
                 self._last_brush_erase = None
                 self._brush_base_mask = None
                 self._brush_base_source = None
+                self._brush_undo_stack.clear()
+                self._brush_stroke_active = False
                 self._image_state().is_dirty = True
+        elif action == "brush_end":
+            self._last_brush_xy = None
+            self._last_brush_erase = None
+            self._brush_stroke_active = False
 
     def render_frame(self, image_format: Literal["jpg", "png"] = "png") -> bytes:
         if self.base_bgr is None or not self.has_images:
