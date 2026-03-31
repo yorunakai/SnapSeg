@@ -31,11 +31,23 @@ def gpu_free_gb(device: str) -> float:
 
 
 class PrefetchQueue:
-    def __init__(self, device: str, min_free_gb: float = 2.0) -> None:
+    def __init__(
+        self,
+        device: str,
+        min_free_gb: float = 2.0,
+        backend: str = "sam",
+        model_id: str | None = None,
+        checkpoint_dir: Path | None = None,
+    ) -> None:
         self.device = device
         self.min_free_gb = float(min_free_gb)
         self.max_retries = 3
-        self._service = SamEmbeddingCacheService(device=device)
+        self._service = SamEmbeddingCacheService(
+            device=device,
+            backend=backend,
+            model_id=model_id,
+            checkpoint_dir=checkpoint_dir,
+        )
         self._lock = threading.Lock()
         self._requested: deque[Path] = deque()
         self._ready: dict[str, SamImageCache] = {}
@@ -93,8 +105,9 @@ class PrefetchQueue:
                 continue
 
             try:
-                self._service.set_image(target)
-                cache = self._service.snapshot_cache(to_cpu=True)
+                cache = self._service.compute_embedding_for_prefetch(target)
+                if cache is None:
+                    raise RuntimeError("Prefetch embedding failed")
                 with self._lock:
                     key = str(target)
                     self._ready[key] = cache

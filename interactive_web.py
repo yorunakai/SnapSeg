@@ -21,6 +21,7 @@ from pydantic import BaseModel
 from src.interactive import (
     AsyncAutosaveManager,
     AsyncSaveManager,
+    DEFAULT_CHECKPOINT_DIR,
     MaskAnnotation,
     PrefetchQueue,
     SaveTask,
@@ -55,6 +56,12 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="",
         help="Optional Hugging Face model id override for selected backend",
+    )
+    p.add_argument(
+        "--checkpoint-dir",
+        type=Path,
+        default=DEFAULT_CHECKPOINT_DIR,
+        help="Directory to search for local .pth checkpoints before HuggingFace fallback",
     )
     p.add_argument(
         "--restore-flags",
@@ -152,6 +159,7 @@ class AnnotatorSession:
         source_path: str = "",
         backend: Literal["sam", "mobile_sam"] = "sam",
         model_id: str | None = None,
+        checkpoint_dir: Path | None = None,
         restore_flags: bool = False,
     ) -> None:
         self.images = images
@@ -162,8 +170,14 @@ class AnnotatorSession:
         self.autosave_dir = self.out_dir / "autosave"
         self.autosave_dir.mkdir(parents=True, exist_ok=True)
 
-        self.service = get_global_service(backend=backend, model_id=model_id)
-        self.prefetch = PrefetchQueue(device=self.service.device, min_free_gb=2.0)
+        self.service = get_global_service(backend=backend, model_id=model_id, checkpoint_dir=checkpoint_dir)
+        self.prefetch = PrefetchQueue(
+            device=self.service.device,
+            min_free_gb=2.0,
+            backend=backend,
+            model_id=model_id,
+            checkpoint_dir=checkpoint_dir,
+        )
         self.save_manager = AsyncSaveManager()
         self.autosave_manager = AsyncAutosaveManager()
         self.lock = threading.Lock()
@@ -1040,6 +1054,8 @@ class AnnotatorSession:
                 "backend": self.service.backend,
                 "model_id": self.service.model_id,
                 "backend_warning": self.service.last_load_warning,
+                "model_source": self.service.model_source,
+                "model_checkpoint_name": self.service.model_checkpoint_name,
                 "prefetch_free_gb": 0.0,
                 "prefetch_paused_low_vram": False,
                 "embedding_ready": False,
@@ -1091,6 +1107,8 @@ class AnnotatorSession:
             "backend": self.service.backend,
             "model_id": self.service.model_id,
             "backend_warning": self.service.last_load_warning,
+            "model_source": self.service.model_source,
+            "model_checkpoint_name": self.service.model_checkpoint_name,
             "prefetch_free_gb": round(float(pf["free_gb"]), 2),
             "prefetch_paused_low_vram": bool(pf["paused_low_vram"]),
             "embedding_ready": self.embedding_loaded_for == self.current_image,
@@ -1255,6 +1273,7 @@ def main() -> None:
         source_path=source_path,
         backend=args.backend,
         model_id=model_id,
+        checkpoint_dir=args.checkpoint_dir,
         restore_flags=args.restore_flags,
     )
     app = build_app(session)

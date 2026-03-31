@@ -1079,6 +1079,7 @@ async function getState() {
     { k: 'Latency', v: `${state.latency_ms} ms` },
     { k: 'Backend', v: `${state.backend_requested} -> ${state.backend}` },
     { k: 'Model', v: `${state.model_id}` },
+    { k: 'Model Source', v: `${state.model_source || 'unknown'}` },
     { k: 'Model Status', v: `${state.model_status || 'idle'}` },
     { k: 'Save Queue', v: `${state.save_queue}` },
     { k: 'Autosave Queue', v: `${state.autosave_queue}` },

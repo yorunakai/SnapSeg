@@ -13,6 +13,10 @@ outputs/
 # Local datasets (usually large, keep local)
 datasets/
 
+# Local SAM checkpoints (user-provided)
+Model Checkpoints/*
+!Model Checkpoints/.gitkeep
+
 # OS/editor noise
 .DS_Store
 Thumbs.db
