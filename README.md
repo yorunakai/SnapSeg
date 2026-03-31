@@ -88,6 +88,7 @@ outputs/<run>/autosave/
 - CUDA GPU recommended (CPU works, slower)
 - `torch`, `torchvision`, `transformers`, `fastapi`, `uvicorn`, `opencv-python`, `numpy`, `pillow`
 - `segment-anything` (for local `.pth` checkpoint mode)
+- Installing dependencies does **not** include pretrained SAM checkpoint files.
 
 ## Model Checkpoints
 
@@ -107,6 +108,14 @@ Checkpoint download (official SAM):
 
 - `vit_b`: [ViT-B SAM model](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth)
 
+Users are responsible for downloading and using checkpoints in compliance with the original model licenses and terms.
+
+## Third-Party Models & Dependencies
+
+SnapSeg provides the annotation workflow and web UI layer.  
+SAM implementations, model checkpoints, and external model hosting (for example, Hugging Face models such as `facebook/sam-vit-base`) are third-party dependencies/assets and are provided under their respective licenses and terms.
+
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT applies to the SnapSeg source code in this repository.  
+Third-party dependencies and model assets are subject to their own licenses and terms. See [LICENSE](LICENSE).

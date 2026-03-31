@@ -88,6 +88,7 @@ outputs/<run>/autosave/
 - 建議使用 CUDA GPU（CPU 可用但較慢）
 - `torch`、`torchvision`、`transformers`、`fastapi`、`uvicorn`、`opencv-python`、`numpy`、`pillow`
 - `segment-anything`（本地 `.pth` 權重模式需要）
+- 安裝上述依賴**不包含**預訓練 SAM 權重檔案。
 
 ## Model Checkpoints（本地權重）
 
@@ -107,6 +108,14 @@ Snapseg/Model Checkpoints/
 
 - `vit_b`：[ViT-B SAM model](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth)
 
+使用者需自行確認並遵守原始模型/權重的授權與使用條款後再下載與使用。
+
+## 第三方模型與依賴聲明
+
+SnapSeg 提供的是標註流程與 Web UI 工具層。  
+SAM 實作、模型權重與外部模型託管來源（例如 Hugging Face 的 `facebook/sam-vit-base`）皆屬第三方依賴/資產，並受其各自授權與使用條款約束。
+
 ## 授權
 
-MIT，詳見 [LICENSE](LICENSE)。
+MIT 僅適用於本儲存庫中的 SnapSeg 原始碼。  
+第三方依賴與模型資產適用其各自授權與條款，詳見 [LICENSE](LICENSE)。
