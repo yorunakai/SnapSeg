@@ -283,6 +283,17 @@
       padding: 16px;
       box-sizing: border-box;
     }
+    .fieldInput {
+      width: 100%;
+      min-width: 0;
+      display: block;
+      padding: 10px;
+      border-radius: 10px;
+      background: #182430;
+      color: #e6eef7;
+      border: 1px solid #33485f;
+      box-sizing: border-box;
+    }
     .overviewCard {
       width: min(1400px, 100%);
       height: min(88vh, 900px);
@@ -498,7 +509,7 @@
         <summary>Source</summary>
         <div class="foldBody">
           <div style="margin-bottom:6px;">Select a source folder or a single image:</div>
-          <input id="sourcePath" type="text" readonly style="width:100%;padding:10px;border-radius:10px;background:#182430;color:#e6eef7;border:1px solid #33485f;" placeholder="Pick a folder or image path">
+          <input id="sourcePath" class="fieldInput" type="text" readonly placeholder="Pick a folder or image path">
           <div class="row">
             <button class="btn" onclick="pickFolder()">Pick Folder</button>
             <button class="btn" onclick="pickImage()">Pick Image</button>
@@ -510,7 +521,7 @@
         <summary>Classes</summary>
         <div class="foldBody">
           <div style="margin-top:2px;margin-bottom:6px;">Class List (comma-separated)</div>
-          <input id="classInput" type="text" style="width:100%;padding:10px;border-radius:10px;background:#182430;color:#e6eef7;border:1px solid #33485f;" placeholder="scratch,particle,stain">
+          <input id="classInput" class="fieldInput" type="text" placeholder="scratch,particle,stain">
           <div style="margin-top:10px;margin-bottom:6px;">Active Class</div>
           <div id="classTags" class="classTags"></div>
           <div class="row">
