@@ -1160,6 +1160,7 @@ class AnnotatorSession:
                 "index": i,
                 "label": inst.label,
                 "score": round(float(inst.score), 4),
+                "area_px": int(np.count_nonzero(inst.mask)),
                 "bbox_source": inst.bbox_source,
                 "color_bgr": list(self._label_color_bgr(inst.label)),
             }

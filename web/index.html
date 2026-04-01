@@ -370,6 +370,53 @@
       color: #ffe8b8;
     }
     .settingsTools { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+    .instStatsWrap {
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px dashed #3b4f62;
+      overflow-x: auto;
+      scrollbar-width: thin;
+      scrollbar-color: #4a6178 #182736;
+    }
+    .instStatsWrap::-webkit-scrollbar {
+      height: 8px;
+    }
+    .instStatsWrap::-webkit-scrollbar-track {
+      background: #182736;
+      border-radius: 999px;
+    }
+    .instStatsWrap::-webkit-scrollbar-thumb {
+      background: linear-gradient(180deg, #5a7390, #43596f);
+      border-radius: 999px;
+      border: 1px solid #1f3143;
+    }
+    .instStatsWrap::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(180deg, #6d88a8, #4f687f);
+    }
+    .instStatsTitle {
+      font-size: 12px;
+      font-weight: 700;
+      color: #d9e8f7;
+      margin-bottom: 6px;
+    }
+    .instStatsTable {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      min-width: 500px;
+      font-size: 10px;
+    }
+    .instStatsTable th, .instStatsTable td {
+      padding: 3px 4px;
+      border-bottom: 1px solid #2b3f53;
+      text-align: left;
+      color: #c8daee;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .instStatsTable th { color: #9fb2c8; font-weight: 700; }
+    .instStatsWarn { color: #ffbe7a !important; font-weight: 700; }
     .overviewOverlay {
       position: fixed;
       inset: 0;
@@ -709,6 +756,10 @@
         <div class="foldBody">
           <div class="infoCard">
             <div id="instanceList" class="status"></div>
+            <div class="instStatsWrap">
+              <div class="instStatsTitle">Annotation Stats (Current Image)</div>
+              <div id="instanceStats" class="status"></div>
+            </div>
           </div>
         </div>
       </details>
@@ -765,6 +816,7 @@ const btnLoadSourceEl = document.getElementById('btnLoadSource');
 const sourceEl = document.getElementById('sourcePath');
 const classInputEl = document.getElementById('classInput');
 const instanceListEl = document.getElementById('instanceList');
+const instanceStatsEl = document.getElementById('instanceStats');
 const modePointBtn = document.getElementById('modePointBtn');
 const modeBoxBtn = document.getElementById('modeBoxBtn');
 const modeBrushBtn = document.getElementById('modeBrushBtn');
@@ -1321,6 +1373,7 @@ function renderCanvas() {
 function renderInstanceList() {
   if (!state || !state.ready || !state.instances_detail || state.instances_detail.length === 0) {
     instanceListEl.innerHTML = 'No confirmed instances yet.';
+    if (instanceStatsEl) instanceStatsEl.innerHTML = '<div class="status">No stats yet.</div>';
     return;
   }
   const rows = state.instances_detail.map((it) => {
@@ -1342,6 +1395,66 @@ function renderInstanceList() {
     );
   });
   instanceListEl.innerHTML = rows.join('');
+  renderInstanceStats();
+}
+
+function fmtInt(n) {
+  return Number(n || 0).toLocaleString();
+}
+
+function fmtFloat(n, d = 2) {
+  return Number(n || 0).toFixed(d);
+}
+
+function renderInstanceStats() {
+  if (!instanceStatsEl) return;
+  if (!state || !state.ready || !Array.isArray(state.instances_detail) || state.instances_detail.length === 0) {
+    instanceStatsEl.innerHTML = '<div class="status">No stats yet.</div>';
+    return;
+  }
+  const byClass = {};
+  for (const it of state.instances_detail) {
+    const k = String(it.label || 'object');
+    if (!byClass[k]) byClass[k] = [];
+    byClass[k].push({
+      score: Number(it.score || 0),
+      area: Number(it.area_px || 0),
+    });
+  }
+  const rows = Object.entries(byClass).map(([cls, arr]) => {
+    const count = arr.length;
+    const scoreAvg = arr.reduce((a, b) => a + b.score, 0) / Math.max(1, count);
+    const areaAvg = arr.reduce((a, b) => a + b.area, 0) / Math.max(1, count);
+    const areaMin = Math.min(...arr.map((x) => x.area));
+    const areaMax = Math.max(...arr.map((x) => x.area));
+    const scoreWarn = scoreAvg < 0.75;
+    const rangeWarn = areaMin > 0 && (areaMax / areaMin) > 10.0;
+    return {
+      cls,
+      count,
+      scoreAvg,
+      areaAvg,
+      areaMin,
+      areaMax,
+      scoreWarn,
+      rangeWarn,
+    };
+  });
+  const head = '<table class="instStatsTable"><thead><tr><th>Class</th><th>Count</th><th>Avg score</th><th>Avg area</th><th>Area range</th></tr></thead><tbody>';
+  const body = rows.map((r) => {
+    const scoreCls = r.scoreWarn ? 'instStatsWarn' : '';
+    const rangeCls = r.rangeWarn ? 'instStatsWarn' : '';
+    return (
+      `<tr>` +
+      `<td>${esc(r.cls)}</td>` +
+      `<td>${fmtInt(r.count)}</td>` +
+      `<td class="${scoreCls}">${fmtFloat(r.scoreAvg, 2)}</td>` +
+      `<td>${fmtInt(Math.round(r.areaAvg))} px²</td>` +
+      `<td class="${rangeCls}">${fmtInt(r.areaMin)} ~ ${fmtInt(r.areaMax)}</td>` +
+      `</tr>`
+    );
+  }).join('');
+  instanceStatsEl.innerHTML = `${head}${body}</tbody></table>`;
 }
 
 function renderClassTags() {
