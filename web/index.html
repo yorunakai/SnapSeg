@@ -305,6 +305,29 @@
     }
     .settingsTitle { font-size: 16px; font-weight: 700; color: #e8f0fb; }
     .settingsHint { color: #9fb2c8; font-size: 12px; margin-bottom: 10px; }
+    .settingsSection {
+      border: 1px solid #2f4358;
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 12px;
+      background: #132131;
+    }
+    .settingsSectionTitle {
+      font-weight: 700;
+      font-size: 13px;
+      color: #e6eef7;
+      margin-bottom: 8px;
+    }
+    .viewRow {
+      display: grid;
+      grid-template-columns: 120px 1fr 44px;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .viewRow:last-child { margin-bottom: 0; }
+    .viewLabel { color: #c4d6ea; font-size: 12px; }
+    .viewValue { color: #9fd0ff; font-size: 12px; text-align: right; font-family: Consolas, monospace; }
     .shortcutTable {
       display: grid;
       grid-template-columns: minmax(160px, 1fr) minmax(120px, 170px) minmax(140px, 180px);
@@ -627,6 +650,27 @@
       <details class="fold">
         <summary>Settings</summary>
         <div class="foldBody">
+          <div class="settingsSection">
+            <div class="settingsSectionTitle">View Adjustment</div>
+            <div class="viewRow">
+              <div class="viewLabel">Brightness</div>
+              <input id="viewBrightness" type="range" min="50" max="170" step="1" value="100">
+              <div id="viewBrightnessVal" class="viewValue">100%</div>
+            </div>
+            <div class="viewRow">
+              <div class="viewLabel">Contrast</div>
+              <input id="viewContrast" type="range" min="50" max="220" step="1" value="100">
+              <div id="viewContrastVal" class="viewValue">100%</div>
+            </div>
+            <div class="viewRow">
+              <div class="viewLabel">Saturation</div>
+              <input id="viewSaturate" type="range" min="0" max="220" step="1" value="100">
+              <div id="viewSaturateVal" class="viewValue">100%</div>
+            </div>
+            <div class="row">
+              <button class="btn" onclick="resetViewAdjust()">Reset View</button>
+            </div>
+          </div>
           <div style="margin-top:6px;margin-bottom:6px;">Brush Radius</div>
           <input id="brushRadius" type="range" min="1" max="64" step="1" value="12" style="width:100%;">
           <div style="margin-top:10px;margin-bottom:6px;">Polygon Smoothing (epsilon)</div>
@@ -738,6 +782,12 @@ const overviewGridEl = document.getElementById('overviewGrid');
 const settingsOverlayEl = document.getElementById('settingsOverlay');
 const shortcutTableEl = document.getElementById('shortcutTable');
 const settingsHintEl = document.getElementById('settingsHint');
+const viewBrightnessEl = document.getElementById('viewBrightness');
+const viewContrastEl = document.getElementById('viewContrast');
+const viewSaturateEl = document.getElementById('viewSaturate');
+const viewBrightnessValEl = document.getElementById('viewBrightnessVal');
+const viewContrastValEl = document.getElementById('viewContrastVal');
+const viewSaturateValEl = document.getElementById('viewSaturateVal');
 const loadingOverlay = document.getElementById('loadingOverlay');
 const loadingText = document.getElementById('loadingText');
 let state = null;
@@ -773,6 +823,7 @@ let brushLineStart = null;
 let recordingShortcutId = null;
 
 const SHORTCUT_STORAGE_KEY = 'snapseg.shortcuts.v1';
+const VIEW_ADJUST_STORAGE_KEY = 'snapseg.view_adjust.v1';
 const shortcutSpecs = [
   { id: 'save', label: 'Save', default: 'S', handler: () => act('save') },
   { id: 'confirm', label: 'Confirm', default: 'Enter', handler: () => act('confirm') },
@@ -796,6 +847,7 @@ const shortcutSpecs = [
 const defaultShortcuts = Object.fromEntries(shortcutSpecs.map((s) => [s.id, s.default]));
 const shortcutHandlers = Object.fromEntries(shortcutSpecs.map((s) => [s.id, s.handler]));
 let userShortcuts = { ...defaultShortcuts };
+let viewAdjust = { brightness: 100, contrast: 100, saturate: 100 };
 
 function esc(s) {
   return String(s ?? '')
@@ -830,6 +882,55 @@ function eventToShortcut(e) {
 
 function saveShortcuts() {
   localStorage.setItem(SHORTCUT_STORAGE_KEY, JSON.stringify(userShortcuts));
+}
+
+function clampNum(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, Number(v)));
+}
+
+function saveViewAdjust() {
+  localStorage.setItem(VIEW_ADJUST_STORAGE_KEY, JSON.stringify(viewAdjust));
+}
+
+function loadViewAdjust() {
+  let parsed = {};
+  try {
+    parsed = JSON.parse(localStorage.getItem(VIEW_ADJUST_STORAGE_KEY) || '{}') || {};
+  } catch {
+    parsed = {};
+  }
+  viewAdjust.brightness = clampNum(parsed.brightness ?? 100, 50, 170);
+  viewAdjust.contrast = clampNum(parsed.contrast ?? 100, 50, 220);
+  viewAdjust.saturate = clampNum(parsed.saturate ?? 100, 0, 220);
+}
+
+function syncViewAdjustUI() {
+  if (viewBrightnessEl) viewBrightnessEl.value = String(Math.round(viewAdjust.brightness));
+  if (viewContrastEl) viewContrastEl.value = String(Math.round(viewAdjust.contrast));
+  if (viewSaturateEl) viewSaturateEl.value = String(Math.round(viewAdjust.saturate));
+  if (viewBrightnessValEl) viewBrightnessValEl.textContent = `${Math.round(viewAdjust.brightness)}%`;
+  if (viewContrastValEl) viewContrastValEl.textContent = `${Math.round(viewAdjust.contrast)}%`;
+  if (viewSaturateValEl) viewSaturateValEl.textContent = `${Math.round(viewAdjust.saturate)}%`;
+}
+
+function applyViewAdjustFromControls() {
+  viewAdjust.brightness = clampNum(viewBrightnessEl?.value ?? 100, 50, 170);
+  viewAdjust.contrast = clampNum(viewContrastEl?.value ?? 100, 50, 220);
+  viewAdjust.saturate = clampNum(viewSaturateEl?.value ?? 100, 0, 220);
+  syncViewAdjustUI();
+  saveViewAdjust();
+  renderCanvas();
+}
+
+function resetViewAdjust() {
+  viewAdjust = { brightness: 100, contrast: 100, saturate: 100 };
+  syncViewAdjustUI();
+  saveViewAdjust();
+  renderCanvas();
+}
+
+function currentCanvasFilter() {
+  return `brightness(${viewAdjust.brightness}%) contrast(${viewAdjust.contrast}%) saturate(${viewAdjust.saturate}%)`;
 }
 
 function loadShortcuts() {
@@ -875,6 +976,7 @@ function renderShortcutTable() {
 function openSettings() {
   recordingShortcutId = null;
   if (settingsHintEl) settingsHintEl.textContent = 'Customize shortcuts. Click "Set" then press a key combination.';
+  syncViewAdjustUI();
   renderShortcutTable();
   settingsOverlayEl.style.display = 'flex';
 }
@@ -1179,7 +1281,9 @@ function renderCanvas() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, cv.width, cv.height);
   ctx.setTransform(viewScale, 0, 0, viewScale, viewTx, viewTy);
+  ctx.filter = currentCanvasFilter();
   ctx.drawImage(frameImg, 0, 0, state.width, state.height);
+  ctx.filter = 'none';
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   if (dragBox) {
     const x = Math.min(boxStartX, boxEndX);
@@ -1770,8 +1874,14 @@ window.addEventListener('keyup', (e) => {
   }
 });
 
+if (viewBrightnessEl) viewBrightnessEl.addEventListener('input', applyViewAdjustFromControls);
+if (viewContrastEl) viewContrastEl.addEventListener('input', applyViewAdjustFromControls);
+if (viewSaturateEl) viewSaturateEl.addEventListener('input', applyViewAdjustFromControls);
+
 updateModeButtons();
 updateBrushButtons();
+loadViewAdjust();
+syncViewAdjustUI();
 loadShortcuts();
 drawFrame();
 </script>
