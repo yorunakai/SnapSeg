@@ -6,9 +6,43 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>SnapSeg Interactive Annotator</title>
   <style>
-    :root { --bg:#0f1720; --card:#1b2530; --line:#2d3a48; --text:#e6eef7; --muted:#9fb2c8; --ok:#27c26c; --ng:#ff9f40; --topbar-h:56px; --radius-ui:6px; }
+    :root {
+      --bg:#0f1720;
+      --card:#1b2530;
+      --line:#2d3a48;
+      --text:#e6eef7;
+      --muted:#9fb2c8;
+      --ok:#27c26c;
+      --ng:#ff9f40;
+      --topbar-h:56px;
+      --radius-ui:6px;
+      --scroll-track:#182736;
+      --scroll-thumb:#4a6178;
+      --scroll-thumb-hover:#5d7892;
+      --scroll-border:#1f3143;
+    }
     html, body { height:100%; }
     body { margin:0; background:linear-gradient(120deg,#0f1720,#121b24); color:var(--text); font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif; overflow:hidden; }
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+    }
+    *::-webkit-scrollbar {
+      width: 9px;
+      height: 9px;
+    }
+    *::-webkit-scrollbar-track {
+      background: var(--scroll-track);
+      border-radius: 999px;
+    }
+    *::-webkit-scrollbar-thumb {
+      background: linear-gradient(180deg, #5a7390, #43596f);
+      border-radius: 999px;
+      border: 1px solid var(--scroll-border);
+    }
+    *::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(180deg, #6d88a8, #4f687f);
+    }
     .topBar {
       height:var(--topbar-h);
       border-bottom:1px solid #2a3948;
@@ -375,23 +409,6 @@
       padding-top: 8px;
       border-top: 1px dashed #3b4f62;
       overflow-x: auto;
-      scrollbar-width: thin;
-      scrollbar-color: #4a6178 #182736;
-    }
-    .instStatsWrap::-webkit-scrollbar {
-      height: 8px;
-    }
-    .instStatsWrap::-webkit-scrollbar-track {
-      background: #182736;
-      border-radius: 999px;
-    }
-    .instStatsWrap::-webkit-scrollbar-thumb {
-      background: linear-gradient(180deg, #5a7390, #43596f);
-      border-radius: 999px;
-      border: 1px solid #1f3143;
-    }
-    .instStatsWrap::-webkit-scrollbar-thumb:hover {
-      background: linear-gradient(180deg, #6d88a8, #4f687f);
     }
     .instStatsTitle {
       font-size: 12px;
