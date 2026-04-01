@@ -38,10 +38,15 @@ class PrefetchQueue:
         backend: str = "sam",
         model_id: str | None = None,
         checkpoint_dir: Path | None = None,
+        foreground_busy_event: threading.Event | None = None,
+        cpu_post_compute_delay_s: float = 0.15,
     ) -> None:
         self.device = device
+        self._is_cpu = device.startswith("cpu")
         self.min_free_gb = float(min_free_gb)
         self.max_retries = 3
+        self._foreground_busy_event = foreground_busy_event
+        self._cpu_post_compute_delay_s = max(0.0, float(cpu_post_compute_delay_s))
         self._service = SamEmbeddingCacheService(
             device=device,
             backend=backend,
@@ -70,10 +75,14 @@ class PrefetchQueue:
                 return
             self._requested.append(image_path)
 
-    def clear_pending(self) -> None:
+    def clear_pending(self, keep_paths: set[str] | None = None) -> None:
         with self._lock:
-            self._requested.clear()
-            self._retry_count.clear()
+            if keep_paths is None:
+                self._requested.clear()
+                self._retry_count.clear()
+                return
+            self._requested = deque([p for p in self._requested if str(p) in keep_paths])
+            self._retry_count = {k: v for k, v in self._retry_count.items() if k in keep_paths}
 
     def pop_ready(self, image_path: Path) -> SamImageCache | None:
         with self._lock:
@@ -104,6 +113,12 @@ class PrefetchQueue:
                 sleep(0.1)
                 continue
 
+            if self._is_cpu and self._foreground_busy_event is not None:
+                while self._foreground_busy_event.is_set() and not self._stop:
+                    sleep(0.02)
+                if self._stop:
+                    break
+
             try:
                 cache = self._service.compute_embedding_for_prefetch(target)
                 if cache is None:
@@ -112,6 +127,8 @@ class PrefetchQueue:
                     key = str(target)
                     self._ready[key] = cache
                     self._retry_count.pop(key, None)
+                if self._is_cpu and self._cpu_post_compute_delay_s > 0.0:
+                    sleep(self._cpu_post_compute_delay_s)
             except Exception:
                 with self._lock:
                     key = str(target)

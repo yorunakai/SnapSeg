@@ -180,12 +180,15 @@ class AnnotatorSession:
         self.autosave_dir.mkdir(parents=True, exist_ok=True)
 
         self.service = get_global_service(backend=backend, model_id=model_id, checkpoint_dir=checkpoint_dir)
+        self._foreground_embedding_busy = threading.Event()
         self.prefetch = PrefetchQueue(
             device=self.service.device,
             min_free_gb=2.0,
             backend=backend,
             model_id=model_id,
             checkpoint_dir=checkpoint_dir,
+            foreground_busy_event=self._foreground_embedding_busy,
+            cpu_post_compute_delay_s=0.15,
         )
         self.save_manager = AsyncSaveManager()
         self.autosave_manager = AsyncAutosaveManager()
@@ -219,8 +222,10 @@ class AnnotatorSession:
         self.last_score = 0.0
         self.base_bgr: np.ndarray | None = None
         self.polygon_epsilon_ratio = 0.005
-        self.prefetch_lookahead = 2
-        self.prefetch_enabled = self.service.device.startswith("cuda")
+        self.prefetch_enabled = True
+        self._is_cpu = self.service.device.startswith("cpu")
+        self.prefetch_lookahead = 1 if self._is_cpu else 2
+        self.prefetch_include_prev = not self._is_cpu
         self.restore_flags = bool(restore_flags)
         self._model_warmup_thread = threading.Thread(target=self._load_model_background, daemon=True, name="model-warmup")
         self._model_warmup_thread.start()
@@ -445,12 +450,15 @@ class AnnotatorSession:
                 success = False
                 err_msg = ""
                 try:
+                    self._foreground_embedding_busy.set()
                     self.service.set_image(target)
                     image_rgb = self.service.image_rgb.copy()
                     success = True
                 except Exception as exc:
                     image_rgb = None
                     err_msg = str(exc)
+                finally:
+                    self._foreground_embedding_busy.clear()
 
                 should_predict = False
                 with self.lock:
@@ -520,11 +528,11 @@ class AnnotatorSession:
         self.last_latency_ms = 0.0
         self.last_score = 0.0
         self._restore_autosave_for_current_image()
-        self._request_prefetch_window()
         if self.embedding_loaded_for == self.current_image:
             self._embedding_event.set()
         elif trigger_embedding:
             self._enqueue_embedding(self.current_image, gen)
+        self._request_prefetch_window()
 
     @staticmethod
     def _read_image_bgr(image_path: Path) -> np.ndarray:
@@ -554,6 +562,7 @@ class AnnotatorSession:
         self.embedding_status = "loading"
         self.embedding_error = ""
         try:
+            self._foreground_embedding_busy.set()
             cache = self.prefetch.pop_ready(self.current_image) if self.prefetch_enabled else None
             if cache is not None:
                 self.service.load_cache(cache)
@@ -568,18 +577,24 @@ class AnnotatorSession:
             self.embedding_error = str(exc)
             self._embedding_event.set()
             raise
+        finally:
+            self._foreground_embedding_busy.clear()
 
     def _request_prefetch_window(self) -> None:
         if not self.has_images or not self.prefetch_enabled:
             return
-        self.prefetch.clear_pending()
+        desired_paths: list[Path] = []
         for ahead in range(1, self.prefetch_lookahead + 1):
             future_idx = self.current_idx + ahead
             if future_idx < len(self.images):
-                self.prefetch.request(self.images[future_idx])
-        prev_idx = self.current_idx - 1
-        if prev_idx >= 0:
-            self.prefetch.request(self.images[prev_idx])
+                desired_paths.append(self.images[future_idx])
+        if self.prefetch_include_prev:
+            prev_idx = self.current_idx - 1
+            if prev_idx >= 0:
+                desired_paths.append(self.images[prev_idx])
+        self.prefetch.clear_pending(keep_paths={str(p) for p in desired_paths})
+        for p in desired_paths:
+            self.prefetch.request(p)
 
     def _submit_autosave_async(self) -> None:
         self._write_autosave_if_dirty()
