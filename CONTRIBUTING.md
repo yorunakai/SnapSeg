@@ -69,6 +69,7 @@ Before opening a PR, verify all of the following:
 - [ ] Feature works end-to-end (load source -> annotate -> save -> verify outputs)
 - [ ] Existing flows still work: point prompt, box prompt, brush mode, autosave restore, backend fallback
 - [ ] No Python exceptions in terminal during normal use
+- [ ] Browser console has no new errors/warnings during key annotation flows
 
 ### Files
 - [ ] No model checkpoints, no `outputs/` artifacts, no `*.pth` / `*.safetensors` / `*.bin` files staged
@@ -84,6 +85,8 @@ Before opening a PR, verify all of the following:
 - [ ] No hardcoded absolute paths
 - [ ] No leftover debug prints in production code
 - [ ] Type hints preserved on all new public functions/methods
+- [ ] No new inline UI text without locale entries (`web/locales/en.json` at minimum)
+- [ ] No new hardcoded UI colors outside token definitions and theme JSON files
 
 ---
 
@@ -138,11 +141,15 @@ SnapSeg follows standard Python conventions with project-specific rules.
 - Hold `session.lock` for read-modify-write operations in API endpoints
 - Use async managers for file writes in request paths (`AsyncSaveManager`, `AsyncAutosaveManager`)
 
-### Frontend (`web/index.html`)
+### Frontend (`web/index.html`, `web/app.js`, `web/styles.css`)
 - Keep runtime state in JS variables
 - `localStorage` is allowed only for UI preferences (for example, shortcut mappings), not annotation source-of-truth
 - After server-side state mutations, refresh view/state consistently (`await drawFrame()` pattern)
 - New hotkeys must be wired in the keymap layer and documented in both READMEs
+- New interactive handlers should be bound in `web/app.js` with `addEventListener`
+- Avoid adding new inline HTML handlers (`onclick`, `onchange`); migrate existing ones when touching related UI
+- New user-facing strings must be added to locale files before UI wiring
+- New UI colors must use CSS tokens in `:root` and be mirrored in theme JSON files (`web/themes/*.json`)
 
 ### SAM Service (`src/interactive/sam_service.py`)
 - Keep embedding cache logic centralized in `SamEmbeddingCacheService`
