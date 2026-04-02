@@ -3,6 +3,7 @@
   "app.title": "SnapSeg Interactive Annotator",
   "common.close": "Close",
   "settings.title": "Settings",
+  "settings.theme": "Theme",
   "settings.language": "Language",
   "settings.reset_defaults": "Reset Defaults",
   "settings.hint_customize": "Customize shortcuts. Click \"Set\" then press a key combination.",
@@ -17,6 +18,11 @@
   "settings.bind": "Bind",
   "settings.press_key": "Press Key...",
   "settings.set": "Set",
+  "language.en": "English",
+  "language.zh_tw": "Traditional Chinese",
+  "theme.dark": "Slate",
+  "theme.graphite": "Graphite",
+  "theme.fog": "Fog",
 
   "overview.title": "Annotation Overview",
   "overview.filter_all": "All",
@@ -158,6 +164,7 @@
   "error.model_failed": "Model failed: {err}",
   "error.generic": "Error: {err}",
   "error.model_slow": "Model loading is taking longer than expected. Check network/cache.",
+  "error.theme_load_failed": "Failed to load theme.",
 
   "epsilon.current": "Current epsilon: {value}",
 

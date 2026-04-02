@@ -1399,8 +1399,11 @@ def build_app(session: AnnotatorSession) -> FastAPI:
     app = FastAPI(title="SnapSeg Interactive Web")
     web_dir = Path(__file__).resolve().parent / "web"
     locales_dir = web_dir / "locales"
+    themes_dir = web_dir / "themes"
     if locales_dir.exists():
         app.mount("/locales", StaticFiles(directory=str(locales_dir)), name="locales")
+    if themes_dir.exists():
+        app.mount("/themes", StaticFiles(directory=str(themes_dir)), name="themes")
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:

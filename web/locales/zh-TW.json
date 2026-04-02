@@ -3,6 +3,7 @@
   "app.title": "SnapSeg 互動式標註工具",
   "common.close": "關閉",
   "settings.title": "設定",
+  "settings.theme": "主題",
   "settings.language": "介面語言",
   "settings.reset_defaults": "重設為預設",
   "settings.hint_customize": "可自訂快捷鍵。按下「設定」後再按鍵盤組合。",
@@ -17,6 +18,11 @@
   "settings.bind": "設定",
   "settings.press_key": "按鍵中...",
   "settings.set": "設定",
+  "language.en": "英文",
+  "language.zh_tw": "繁體中文",
+  "theme.dark": "Slate（深藍灰）",
+  "theme.graphite": "Graphite（暖深灰）",
+  "theme.fog": "Fog（淺冷灰）",
 
   "overview.title": "標註總覽",
   "overview.filter_all": "全部",
@@ -158,6 +164,7 @@
   "error.model_failed": "模型載入失敗：{err}",
   "error.generic": "錯誤：{err}",
   "error.model_slow": "模型載入時間較長，請檢查網路或快取。",
+  "error.theme_load_failed": "主題載入失敗。",
 
   "epsilon.current": "目前 epsilon：{value}",
 
