@@ -87,6 +87,8 @@ Before opening a PR, verify all of the following:
 - [ ] Type hints preserved on all new public functions/methods
 - [ ] No new inline UI text without locale entries (`web/locales/en.json` at minimum)
 - [ ] No new hardcoded UI colors outside token definitions and theme JSON files
+- [ ] Unit tests added/updated for behavior changes in exporter, packaging, or session logic
+- [ ] CI checks pass (`Syntax check` + `pytest`)
 
 ---
 
@@ -155,6 +157,21 @@ SnapSeg follows standard Python conventions with project-specific rules.
 - Keep embedding cache logic centralized in `SamEmbeddingCacheService`
 - Ensure mask geometry remains aligned to original image space
 - Do not duplicate backend selection/caching logic outside the service layer
+
+---
+
+## Testing
+
+Run tests locally before pushing:
+
+```bash
+python -m compileall -q main.py interactive_web.py src
+pytest -q
+```
+
+Current baseline tests live in `tests/` and focus on:
+- `AnnotationExporter` output integrity (COCO / YOLO)
+- `DatasetPackager` class remap and dataset file generation
 
 ---
 
