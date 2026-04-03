@@ -1,7 +1,10 @@
-﻿# SnapSeg
+﻿<h1 align="center">SnapSeg</h1>
 
-[![Release](https://img.shields.io/github/v/release/yorunakai/SnapSeg?sort=semver)](https://github.com/yorunakai/SnapSeg/releases/tag/v1.0.0)
-
+<p align="center">
+  <a href="https://github.com/yorunakai/SnapSeg/releases/tag/v1.0.0">
+    <img src="https://img.shields.io/github/v/release/yorunakai/SnapSeg?sort=semver" alt="Release">
+  </a>
+</p>
 [繁體中文 README](README.zh-TW.md)
 
 **Annotate faster. Export instantly.**  
@@ -145,4 +148,6 @@ SAM implementations, model checkpoints, and external model hosting (for example,
 
 MIT applies to the SnapSeg source code in this repository.  
 Third-party dependencies and model assets are subject to their own licenses and terms. See [LICENSE](LICENSE).
+
+
 

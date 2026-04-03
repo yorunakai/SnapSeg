@@ -1,7 +1,10 @@
-﻿# SnapSeg
+﻿<h1 align="center">SnapSeg</h1>
 
-[![Release](https://img.shields.io/github/v/release/yorunakai/SnapSeg?sort=semver)](https://github.com/yorunakai/SnapSeg/releases/tag/v1.0.0)
-
+<p align="center">
+  <a href="https://github.com/yorunakai/SnapSeg/releases/tag/v1.0.0">
+    <img src="https://img.shields.io/github/v/release/yorunakai/SnapSeg?sort=semver" alt="Release">
+  </a>
+</p>
 [English README](README.md)
 
 **標得更快，匯出更快。**  
@@ -145,4 +148,5 @@ SAM 實作、模型權重與外部模型託管來源（例如 Hugging Face 的 `
 
 MIT 僅適用於本儲存庫中的 SnapSeg 原始碼。  
 第三方依賴與模型資產適用其各自授權與條款，詳見 [LICENSE](LICENSE)。
+
 
