@@ -5,10 +5,14 @@
     <img src="https://img.shields.io/github/v/release/yorunakai/SnapSeg?sort=semver" alt="Release">
   </a>
 </p>
-[繁體中文 README](README.zh-TW.md)
+<p align="center">
+  <a href="./README.zh-TW.md">繁體中文 README</a>
+</p>
 
-**Annotate faster. Export instantly.**  
-Interactive image segmentation powered by SAM - click to segment, export to COCO or YOLO in seconds.
+<p align="center">
+  <strong>Annotate faster. Export instantly.</strong><br>
+  Interactive image segmentation powered by SAM - click to segment, export to COCO or YOLO in seconds.
+</p>
 
 ![SnapSeg UI](docs/ui.png)
 
